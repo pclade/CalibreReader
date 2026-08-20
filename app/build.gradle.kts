@@ -45,4 +45,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
 }

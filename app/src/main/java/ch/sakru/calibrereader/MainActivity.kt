@@ -42,8 +42,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import ch.sakru.calibrereader.calibre.BookFile
+import ch.sakru.calibrereader.calibre.SavedLibrary
+import ch.sakru.calibrereader.calibre.LibraryStorage
+import ch.sakru.calibrereader.calibre.LibraryViewMode
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.items
 
 class MainActivity : ComponentActivity() {
+    private var libraryViewMode by
+    mutableStateOf(LibraryViewMode.LIST)
+    private var showLibrarySelection by mutableStateOf(true)
+    private var savedLibraries by
+    mutableStateOf<List<SavedLibrary>>(emptyList())
+    private lateinit var libraryStorage: LibraryStorage
     private var metadataDbItemId by mutableStateOf<String?>(null)
     private var accessToken by mutableStateOf("")
 
@@ -77,6 +90,31 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        libraryStorage =
+            LibraryStorage(applicationContext)
+
+        Thread {
+
+            kotlinx.coroutines.runBlocking {
+
+                val libraries =
+                    libraryStorage.loadLibraries()
+
+                val viewMode =
+                    libraryStorage.loadViewMode()
+
+                runOnUiThread {
+
+                    savedLibraries =
+                        libraries
+
+                    libraryViewMode =
+                        viewMode
+                }
+            }
+
+        }.start()
+
         authManager = MicrosoftAuthManager(
             context = applicationContext,
             onReadyChanged = { ready ->
@@ -100,18 +138,27 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (!loggedIn) {
+
                         LoginScreen(
                             msalReady = msalReady,
                             isLoading = isLoading,
                             errorMessage = errorMessage,
                             onLogin = ::startLogin
                         )
+
                     } else if (libraryLoaded) {
+
                         LibraryScreen(
                             books = books,
                             accessToken = accessToken,
                             rootFolderId = selectedCalibreFolderId,
                             coverRepository = coverRepository,
+
+                            viewMode = libraryViewMode,
+
+                            onViewModeChange = { mode ->
+                                changeViewMode(mode)
+                            },
 
                             onOpenBook = { book, bookFile ->
                                 openBook(
@@ -120,7 +167,30 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         )
+
+                    } else if (showLibrarySelection) {
+
+                        LibrarySelectionScreen(
+                            libraries = savedLibraries,
+
+                            onLibraryClick = { library ->
+
+                                selectedCalibreFolderId =
+                                    library.folderId
+
+                                loadSavedLibrary(
+                                    library
+                                )
+                            },
+
+                            onAddLibrary = {
+                                showLibrarySelection = false
+                                loadRootFolder()
+                            }
+                        )
+
                     } else {
+
                         OneDriveScreen(
                             userName = userName,
                             currentPath = currentPath,
@@ -128,9 +198,15 @@ class MainActivity : ComponentActivity() {
                             items = currentItems,
                             errorMessage = errorMessage,
                             calibreLibraryFound = calibreLibraryFound,
-                            onFolderClick = { item -> openFolder(item)
+
+                            onFolderClick = { item ->
+                                openFolder(item)
                             },
+
                             onUseLibrary = {
+
+                                saveCurrentLibrary()
+
                                 loadCalibreDatabase()
                             }
                         )
@@ -139,7 +215,72 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    private fun loadSavedLibrary(
+        library: SavedLibrary
+    ) {
 
+        selectedCalibreFolderId =
+            library.folderId
+
+        isLoading = true
+        errorMessage = null
+
+        Thread {
+
+            try {
+
+                val children =
+                    GraphClient().getChildren(
+                        accessToken = accessToken,
+                        itemId = library.folderId
+                    )
+
+                val metadataItem =
+                    children.firstOrNull {
+                        it.name.equals(
+                            "metadata.db",
+                            ignoreCase = true
+                        )
+                    }
+
+                if (metadataItem == null) {
+
+                    runOnUiThread {
+                        errorMessage =
+                            "metadata.db wurde nicht gefunden."
+                        isLoading = false
+                    }
+
+                    return@Thread
+                }
+
+                metadataDbItemId =
+                    metadataItem.id
+
+                runOnUiThread {
+
+                    currentPath =
+                        listOf(
+                            "OneDrive",
+                            library.name
+                        )
+
+                    loadCalibreDatabase()
+                }
+
+            } catch (e: Exception) {
+
+                runOnUiThread {
+
+                    errorMessage =
+                        e.message ?: e.javaClass.simpleName
+
+                    isLoading = false
+                }
+            }
+
+        }.start()
+    }
         private fun loadRootFolder() {
 
         isLoading = true
@@ -171,6 +312,62 @@ class MainActivity : ComponentActivity() {
 
                     isLoading = false
                 }
+            }
+
+        }.start()
+    }
+
+    private fun saveCurrentLibrary() {
+
+        val folderId =
+            selectedCalibreFolderId
+                ?: return
+
+        val libraryName =
+            currentPath.lastOrNull()
+                ?: "Calibre Library"
+
+        val library =
+            SavedLibrary(
+                id = folderId,
+                name = libraryName,
+                folderId = folderId,
+                account = userName
+            )
+
+        val newLibraries =
+            savedLibraries
+                .filterNot {
+                    it.folderId == folderId
+                } + library
+
+        savedLibraries =
+            newLibraries
+
+        Thread {
+
+            kotlinx.coroutines.runBlocking {
+                libraryStorage.saveLibraries(
+                    newLibraries
+                )
+            }
+
+        }.start()
+    }
+
+    private fun changeViewMode(
+        mode: LibraryViewMode
+    ) {
+
+        libraryViewMode = mode
+
+        Thread {
+
+            kotlinx.coroutines.runBlocking {
+
+                libraryStorage.saveViewMode(
+                    mode
+                )
             }
 
         }.start()
@@ -866,53 +1063,120 @@ private fun LibraryScreen(
     accessToken: String,
     rootFolderId: String?,
     coverRepository: CoverRepository,
+    viewMode: LibraryViewMode,
+    onViewModeChange: (LibraryViewMode) -> Unit,
     onOpenBook: (Book, BookFile) -> Unit
 ) {
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .padding(16.dp)
     ) {
 
-        Text(
-            text = "Meine Bibliothek",
-            style = MaterialTheme.typography.headlineMedium
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+
+                Text(
+                    text = "Meine Bibliothek",
+                    style =
+                        MaterialTheme.typography.headlineMedium
+                )
+
+                Text(
+                    text = "${books.size} Bücher"
+                )
+            }
+
+            Button(
+                onClick = {
+                    onViewModeChange(
+                        LibraryViewMode.LIST
+                    )
+                }
+            ) {
+                Text("☷")
+            }
+
+            Spacer(
+                modifier = Modifier.width(8.dp)
+            )
+
+            Button(
+                onClick = {
+                    onViewModeChange(
+                        LibraryViewMode.GRID
+                    )
+                }
+            ) {
+                Text("▦")
+            }
+        }
 
         Spacer(
-            modifier = Modifier.height(8.dp)
+            modifier = Modifier.height(16.dp)
         )
 
-        Text(
-            text = "${books.size} Bücher"
-        )
+        when (viewMode) {
 
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
+            LibraryViewMode.LIST -> {
 
-        LazyColumn {
-
-            items(
-                items = books,
-                key = { it.id }
-            ) { book ->
-
-                BookRow(
-                    book = book,
+                LibraryList(
+                    books = books,
                     accessToken = accessToken,
                     rootFolderId = rootFolderId,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook
                 )
+            }
 
-                HorizontalDivider()
+            LibraryViewMode.GRID -> {
+
+                LibraryGrid(
+                    books = books,
+                    accessToken = accessToken,
+                    rootFolderId = rootFolderId,
+                    coverRepository = coverRepository,
+                    onOpenBook = onOpenBook
+                )
             }
         }
     }
 }
+@Composable
+private fun LibraryList(
+    books: List<Book>,
+    accessToken: String,
+    rootFolderId: String?,
+    coverRepository: CoverRepository,
+    onOpenBook: (Book, BookFile) -> Unit
+) {
 
+    LazyColumn {
+
+        items(
+            items = books,
+            key = { it.id }
+        ) { book ->
+
+            BookRow(
+                book = book,
+                accessToken = accessToken,
+                rootFolderId = rootFolderId,
+                coverRepository = coverRepository,
+                onOpenBook = onOpenBook
+            )
+
+            HorizontalDivider()
+        }
+    }
+}
 @Composable
 private fun BookRow(
     book: Book,
@@ -1041,6 +1305,198 @@ private fun BookRow(
                     ) {
                         Text(bookFile.format)
                     }                }
+            }
+        }
+    }
+}
+@Composable
+private fun LibrarySelectionScreen(
+    libraries: List<SavedLibrary>,
+    onLibraryClick: (SavedLibrary) -> Unit,
+    onAddLibrary: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+
+        Text(
+            text = "Meine Bibliotheken",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(
+            modifier = Modifier.height(20.dp)
+        )
+
+        if (libraries.isEmpty()) {
+
+            Text("Noch keine Bibliothek gespeichert.")
+
+            Spacer(
+                modifier = Modifier.height(20.dp)
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
+
+            items(libraries) { library ->
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onLibraryClick(library)
+                        }
+                        .padding(vertical = 16.dp)
+                ) {
+
+                    Text(
+                        text = "📚 ${library.name}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(4.dp)
+                    )
+
+                    Text(
+                        text = library.account,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                HorizontalDivider()
+            }
+        }
+
+        Button(
+            onClick = onAddLibrary,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("+ Bibliothek hinzufügen")
+        }
+    }
+}
+@Composable
+private fun LibraryGrid(
+    books: List<Book>,
+    accessToken: String,
+    rootFolderId: String?,
+    coverRepository: CoverRepository,
+    onOpenBook: (Book, BookFile) -> Unit
+) {
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(
+            minSize = 110.dp
+        )
+    ) {
+
+        items(
+            items = books,
+            key = { it.id }
+        ) { book ->
+
+            BookGridItem(
+                book = book,
+                accessToken = accessToken,
+                rootFolderId = rootFolderId,
+                coverRepository = coverRepository,
+                onOpenBook = onOpenBook
+            )
+        }
+    }
+}
+@Composable
+private fun BookGridItem(
+    book: Book,
+    accessToken: String,
+    rootFolderId: String?,
+    coverRepository: CoverRepository,
+    onOpenBook: (Book, BookFile) -> Unit
+) {
+
+    var bitmap by remember(book.id) {
+        mutableStateOf(
+            coverRepository
+                .getCachedCover(book.id)
+        )
+    }
+
+    LaunchedEffect(
+        book.id,
+        rootFolderId
+    ) {
+
+        if (
+            bitmap == null &&
+            rootFolderId != null
+        ) {
+
+            bitmap =
+                kotlinx.coroutines.withContext(
+                    kotlinx.coroutines.Dispatchers.IO
+                ) {
+
+                    coverRepository.loadCover(
+                        book = book,
+                        accessToken = accessToken,
+                        rootFolderId = rootFolderId
+                    )
+                }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .padding(5.dp)
+            .clickable {
+
+                val file =
+                    book.files.firstOrNull()
+
+                if (file != null) {
+                    onOpenBook(
+                        book,
+                        file
+                    )
+                }
+            }
+    ) {
+
+        if (bitmap != null) {
+
+            Image(
+                bitmap =
+                    bitmap!!.asImageBitmap(),
+
+                contentDescription =
+                    book.title,
+
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.67f),
+
+                contentScale =
+                    ContentScale.Crop
+            )
+
+        } else {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.67f),
+
+                contentAlignment =
+                    Alignment.Center
+            ) {
+
+                Text("📖")
             }
         }
     }
