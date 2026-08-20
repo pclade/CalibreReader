@@ -1,0 +1,16 @@
+{
+  "client_id": "68b8bd28-1296-4e97-be0e-f05082973831",
+  "authorization_user_agent": "BROWSER",
+  "redirect_uri": "msauth://ch.sakru.calibrereader/ZmUbOQHnyWn3wG32OAaVCIGZbKM%3D",
+  "broker_redirect_uri_registered": false,
+  "account_mode": "SINGLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADMultipleOrgs",
+        "tenant_id": "organizations"
+      }
+    }
+  ]
+}
