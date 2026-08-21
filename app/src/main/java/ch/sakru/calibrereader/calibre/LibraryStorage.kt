@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import ch.sakru.calibrereader.model.LibraryViewMode
+import ch.sakru.calibrereader.model.SavedLibrary
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
-
+import ch.sakru.calibrereader.model.StorageProvider
 private val Context.dataStore by preferencesDataStore(
     name = "calibre_settings"
 )
@@ -42,11 +44,28 @@ class LibraryStorage(
             val item =
                 array.getJSONObject(i)
 
+            val storageRootId =
+                if (item.has("storageRootId")) {
+                    item.getString("storageRootId")
+                } else {
+                    item.getString("folderId")
+                }
+
+            val provider =
+                if (item.has("provider")) {
+                    StorageProvider.valueOf(
+                        item.getString("provider")
+                    )
+                } else {
+                    StorageProvider.ONEDRIVE
+                }
+
             result += SavedLibrary(
                 id = item.getString("id"),
                 name = item.getString("name"),
-                folderId = item.getString("folderId"),
-                account = item.getString("account")
+                storageRootId = storageRootId,
+                account = item.getString("account"),
+                provider = provider
             )
         }
 
@@ -64,12 +83,11 @@ class LibraryStorage(
 
             val item =
                 JSONObject()
-
             item.put("id", library.id)
             item.put("name", library.name)
-            item.put("folderId", library.folderId)
+            item.put("storageRootId", library.storageRootId)
             item.put("account", library.account)
-
+            item.put("provider", library.provider.name)
             array.put(item)
         }
 

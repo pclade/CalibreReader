@@ -1,4 +1,4 @@
-package ch.sakru.calibrereader.calibre
+package ch.sakru.calibrereader.model
 
 data class BookFile(
     val name: String,

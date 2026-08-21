@@ -2,6 +2,7 @@ package ch.sakru.calibrereader.calibre
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.onedrive.GraphClient
 import java.util.concurrent.ConcurrentHashMap
 

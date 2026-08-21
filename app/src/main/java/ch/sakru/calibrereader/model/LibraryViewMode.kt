@@ -1,4 +1,4 @@
-package ch.sakru.calibrereader.calibre
+package ch.sakru.calibrereader.model
 
 enum class LibraryViewMode {
     LIST,
