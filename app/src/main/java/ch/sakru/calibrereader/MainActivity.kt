@@ -68,8 +68,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var oneDriveStorage: OneDriveStorage
     private var msalReady by mutableStateOf(false)
     private var userName by mutableStateOf("")
-    private var isLoading by mutableStateOf(false)
-    private var errorMessage by mutableStateOf<String?>(null)
     private var loggedIn by mutableStateOf(false)
 
     private var books by mutableStateOf<List<Book>>(emptyList())
@@ -98,8 +96,9 @@ class MainActivity : ComponentActivity() {
                     savedLibraries =
                         libraries
 
-                    libraryViewMode =
+                    calibreViewModel.setLibraryViewMode(
                         viewMode
+                    )
                 }
             }
 
@@ -118,11 +117,16 @@ class MainActivity : ComponentActivity() {
                 }
             },
             onInitializationError = { error ->
+
                 runOnUiThread {
-                    errorMessage = "MSAL-Initialisierung fehlgeschlagen:\n${error.message}"
+
+                    calibreViewModel.setError(
+                        "MSAL-Initialisierung fehlgeschlagen:\n${error.message}"
+                    )
                 }
             }
         )
+
         oneDriveStorage = OneDriveStorage(
             graphClient = GraphClient(),
             accessTokenProvider = {
@@ -131,17 +135,22 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
+
             val uiState by
             calibreViewModel.uiState.collectAsState()
 
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+
+                Surface(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+
                     if (!loggedIn) {
 
                         LoginScreen(
                             msalReady = msalReady,
-                            isLoading = isLoading,
-                            errorMessage = errorMessage,
+                            isLoading = uiState.isLoading,
+                            errorMessage = uiState.errorMessage,
                             onLogin = ::startLogin
                         )
 
@@ -152,21 +161,28 @@ class MainActivity : ComponentActivity() {
                             accessToken = accessToken,
                             rootFolderId = selectedCalibreFolderId,
                             coverRepository = coverRepository,
-
                             viewMode = uiState.libraryViewMode,
 
                             onViewModeChange = { mode ->
-                                calibreViewModel.setLibraryViewMode(mode)
-                                changeViewMode(mode)
+
+                                calibreViewModel.setLibraryViewMode(
+                                    mode
+                                )
+
+                                changeViewMode(
+                                    mode
+                                )
                             },
 
                             onOpenBook = { book, bookFile ->
+
                                 openBook(
                                     book,
                                     bookFile
                                 )
                             }
                         )
+
                     } else if (showLibrarySelection) {
 
                         LibrarySelectionScreen(
@@ -183,7 +199,10 @@ class MainActivity : ComponentActivity() {
                             },
 
                             onAddLibrary = {
-                                showLibrarySelection = false
+
+                                showLibrarySelection =
+                                    false
+
                                 loadRootFolder()
                             }
                         )
@@ -197,10 +216,16 @@ class MainActivity : ComponentActivity() {
                             items = currentItems,
                             errorMessage = uiState.errorMessage,
                             calibreLibraryFound = calibreLibraryFound,
+
                             onFolderClick = { item ->
-                                openFolder(item)
+
+                                openFolder(
+                                    item
+                                )
                             },
+
                             onUseLibrary = {
+
                                 saveCurrentLibrary()
                                 loadCalibreDatabase()
                             }
@@ -209,16 +234,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-    private fun loadSavedLibrary(
+    }    private fun loadSavedLibrary(
         library: SavedLibrary
     ) {
 
         selectedCalibreFolderId =
             library.storageRootId
 
-        isLoading = true
-        errorMessage = null
+        calibreViewModel.setLoading(true)
+        calibreViewModel.clearError()
 
         Thread {
 
@@ -241,9 +265,12 @@ class MainActivity : ComponentActivity() {
                 if (metadataItem == null) {
 
                     runOnUiThread {
-                        errorMessage =
+
+                        calibreViewModel.setError(
                             "metadata.db wurde nicht gefunden."
-                        isLoading = false
+                        )
+
+                        calibreViewModel.setLoading(false)
                     }
 
                     return@Thread
@@ -267,16 +294,16 @@ class MainActivity : ComponentActivity() {
 
                 runOnUiThread {
 
-                    errorMessage =
+                    calibreViewModel.setError(
                         e.message ?: e.javaClass.simpleName
+                    )
 
-                    isLoading = false
+                    calibreViewModel.setLoading(false)
                 }
             }
 
         }.start()
     }
-
     /**
      * Loads the root folder of the currently authenticated cloud storage.
      */
@@ -416,8 +443,10 @@ class MainActivity : ComponentActivity() {
             onError = { exception ->
 
                 runOnUiThread {
-                    errorMessage =
+                    calibreViewModel.setError(
                         exception.message
+                            ?: exception.javaClass.simpleName
+                    )
                 }
             }
         )
@@ -700,13 +729,15 @@ class MainActivity : ComponentActivity() {
                 "selectedCalibreFolderId ist NULL"
             )
 
-            errorMessage =
+            calibreViewModel.setError(
                 "Calibre-Stammverzeichnis nicht gesetzt."
+            )
 
             return
         }
 
-        // bisheriger Code folgt...
+        calibreViewModel.setLoading(true)
+        calibreViewModel.clearError()
 
         Thread {
 
@@ -769,22 +800,24 @@ class MainActivity : ComponentActivity() {
                         extension
                     )
 
-                    isLoading = false
+                    calibreViewModel.setLoading(false)
                 }
 
             } catch (e: Exception) {
 
                 runOnUiThread {
 
-                    errorMessage =
+                    calibreViewModel.setError(
                         e.message ?: e.javaClass.simpleName
+                    )
 
-                    isLoading = false
+                    calibreViewModel.setLoading(false)
                 }
             }
 
         }.start()
     }
+
     private fun openLocalBook(
         file: File,
         extension: String
@@ -798,6 +831,7 @@ class MainActivity : ComponentActivity() {
             "CalibreReader",
             "Existiert: ${file.exists()}, Grösse: ${file.length()}"
         )
+
         val uri =
             androidx.core.content.FileProvider.getUriForFile(
                 this,
@@ -834,10 +868,12 @@ class MainActivity : ComponentActivity() {
             }
 
         try {
+
             android.util.Log.d(
                 "CalibreReader",
                 "Starte ACTION_VIEW für .$extension"
             )
+
             startActivity(
                 android.content.Intent.createChooser(
                     intent,
@@ -853,10 +889,12 @@ class MainActivity : ComponentActivity() {
                 e
             )
 
-            errorMessage =
+            calibreViewModel.setError(
                 "Keine passende App zum Öffnen von .$extension gefunden."
+            )
         }
     }
+
     private fun startLogin() {
 
         calibreViewModel.clearError()
