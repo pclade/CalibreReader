@@ -1,6 +1,9 @@
 package ch.sakru.calibrereader.viewmodel
 
 import ch.sakru.calibrereader.model.LibraryViewMode
+import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.SavedLibrary
+import ch.sakru.calibrereader.storage.CloudItem
 
 /**
  * Represents the complete UI state of the CalibreReader application.
@@ -11,6 +14,12 @@ import ch.sakru.calibrereader.model.LibraryViewMode
 data class CalibreUiState(
     val libraryViewMode: LibraryViewMode = LibraryViewMode.LIST,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
-
+    val errorMessage: String? = null,
+    val books: List<Book> = emptyList(),
+    val savedLibraries: List<SavedLibrary> = emptyList(),
+    val currentItems: List<CloudItem> = emptyList(),
+    val currentPath: List<String> = emptyList(),
+    val calibreLibraryFound: Boolean = false,
+    val libraryLoaded: Boolean = false,
+    val showLibrarySelection: Boolean = true
 )

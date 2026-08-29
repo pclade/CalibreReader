@@ -5,6 +5,9 @@ import ch.sakru.calibrereader.model.LibraryViewMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.SavedLibrary
+import ch.sakru.calibrereader.storage.CloudItem
 
 /**
  * Coordinates application state and user actions for CalibreReader.
@@ -69,5 +72,89 @@ class CalibreViewModel : ViewModel() {
      */
     fun clearError() {
         setError(null)
+    }
+    /**
+     * Updates the books currently displayed in the selected Calibre library.
+     *
+     * @param books books loaded from the Calibre metadata database.
+     */
+    fun setBooks(
+        books: List<Book>
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                books = books
+            )
+    }
+    /**
+     * Updates the list of saved Calibre libraries.
+     *
+     * @param libraries libraries persisted by the application.
+     */
+    fun setSavedLibraries(
+        libraries: List<SavedLibrary>
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                savedLibraries = libraries
+            )
+    }
+    /**
+     * Updates the items of the currently displayed cloud folder.
+     */
+    fun setCurrentItems(
+        items: List<CloudItem>
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                currentItems = items
+            )
+    }
+
+    /**
+     * Updates the currently displayed cloud navigation path.
+     */
+    fun setCurrentPath(
+        path: List<String>
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                currentPath = path
+            )
+    }
+    /**
+     * Updates whether the current cloud folder contains a Calibre library.
+     */
+    fun setCalibreLibraryFound(
+        found: Boolean
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                calibreLibraryFound = found
+            )
+    }
+
+    /**
+     * Updates whether a Calibre library has been loaded successfully.
+     */
+    fun setLibraryLoaded(
+        loaded: Boolean
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                libraryLoaded = loaded
+            )
+    }
+
+    /**
+     * Controls whether the saved library selection screen is displayed.
+     */
+    fun setShowLibrarySelection(
+        show: Boolean
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                showLibrarySelection = show
+            )
     }
 }

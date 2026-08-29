@@ -40,38 +40,18 @@ import ch.sakru.calibrereader.viewmodel.CalibreViewModel
 import androidx.compose.runtime.collectAsState
 
 class MainActivity : ComponentActivity() {
-    private val calibreViewModel:
-            CalibreViewModel by viewModels()
-    private var libraryViewMode by
-    mutableStateOf(LibraryViewMode.LIST)
-    private var showLibrarySelection by mutableStateOf(true)
-    private var savedLibraries by
-    mutableStateOf<List<SavedLibrary>>(emptyList())
+    private val calibreViewModel: CalibreViewModel by viewModels()
+    private var libraryViewMode by mutableStateOf(LibraryViewMode.LIST)
     private lateinit var libraryStorage: LibraryStorage
     private var metadataDbItemId by mutableStateOf<String?>(null)
     private var accessToken by mutableStateOf("")
-
-    private var currentItems by
-    mutableStateOf<List<CloudItem>>(emptyList())
-
-    private var currentPath by
-    mutableStateOf(listOf("OneDrive"))
-
-    private var calibreLibraryFound by
-    mutableStateOf(false)
-
-    private var selectedCalibreFolderId by
-    mutableStateOf<String?>(null)
-    private val coverRepository =
-        CoverRepository()
+    private var selectedCalibreFolderId by   mutableStateOf<String?>(null)
+    private val coverRepository = CoverRepository()
     private lateinit var authManager: MicrosoftAuthManager
     private lateinit var oneDriveStorage: OneDriveStorage
     private var msalReady by mutableStateOf(false)
     private var userName by mutableStateOf("")
     private var loggedIn by mutableStateOf(false)
-
-    private var books by mutableStateOf<List<Book>>(emptyList())
-    private var libraryLoaded by mutableStateOf(false)
 
 
 
@@ -92,10 +72,9 @@ class MainActivity : ComponentActivity() {
                     libraryStorage.loadViewMode()
 
                 runOnUiThread {
-
-                    savedLibraries =
+                    calibreViewModel.setSavedLibraries(
                         libraries
-
+                    )
                     calibreViewModel.setLibraryViewMode(
                         viewMode
                     )
@@ -154,10 +133,10 @@ class MainActivity : ComponentActivity() {
                             onLogin = ::startLogin
                         )
 
-                    } else if (libraryLoaded) {
+                    } else if (uiState.libraryLoaded) {
 
                         LibraryScreen(
-                            books = books,
+                            books = uiState.books,
                             accessToken = accessToken,
                             rootFolderId = selectedCalibreFolderId,
                             coverRepository = coverRepository,
@@ -183,10 +162,10 @@ class MainActivity : ComponentActivity() {
                             }
                         )
 
-                    } else if (showLibrarySelection) {
+                    } else if (uiState.showLibrarySelection) {
 
                         LibrarySelectionScreen(
-                            libraries = savedLibraries,
+                            libraries = uiState.savedLibraries,
 
                             onLibraryClick = { library ->
 
@@ -200,8 +179,9 @@ class MainActivity : ComponentActivity() {
 
                             onAddLibrary = {
 
-                                showLibrarySelection =
+                                calibreViewModel.setShowLibrarySelection(
                                     false
+                                )
 
                                 loadRootFolder()
                             }
@@ -211,11 +191,11 @@ class MainActivity : ComponentActivity() {
 
                         OneDriveScreen(
                             userName = userName,
-                            currentPath = currentPath,
+                            currentPath = uiState.currentPath,
                             isLoading = uiState.isLoading,
-                            items = currentItems,
+                            items = uiState.currentItems,
                             errorMessage = uiState.errorMessage,
-                            calibreLibraryFound = calibreLibraryFound,
+                            calibreLibraryFound = uiState.calibreLibraryFound,
 
                             onFolderClick = { item ->
 
@@ -234,7 +214,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }    private fun loadSavedLibrary(
+    }
+
+
+    private fun loadSavedLibrary(
         library: SavedLibrary
     ) {
 
@@ -281,11 +264,12 @@ class MainActivity : ComponentActivity() {
 
                 runOnUiThread {
 
-                    currentPath =
+                    calibreViewModel.setCurrentPath(
                         listOf(
                             "OneDrive",
                             library.name
                         )
+                    )
 
                     loadCalibreDatabase()
                 }
@@ -313,8 +297,8 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val items = oneDriveStorage.listChildren()
-                currentItems = items
-                currentPath = listOf("OneDrive")
+                calibreViewModel.setCurrentItems(items)
+                calibreViewModel.setCurrentPath(listOf("OneDrive"))
                 calibreViewModel.setLoading(false)
             } catch (e: Exception) {
                 calibreViewModel.setError(
@@ -337,7 +321,8 @@ class MainActivity : ComponentActivity() {
                 ?: return
 
         val libraryName =
-            currentPath.lastOrNull()
+            calibreViewModel.uiState.value.currentPath
+                .lastOrNull()
                 ?: "Calibre Library"
 
         val library =
@@ -350,13 +335,15 @@ class MainActivity : ComponentActivity() {
             )
 
         val newLibraries =
-            savedLibraries
+            calibreViewModel.uiState.value.savedLibraries
                 .filterNot {
                     it.storageRootId == folderId &&
                             it.provider == StorageProvider.ONEDRIVE
                 } + library
 
-        savedLibraries = newLibraries
+        calibreViewModel.setSavedLibraries(
+            newLibraries
+        )
 
         lifecycleScope.launch {
 
@@ -469,12 +456,9 @@ class MainActivity : ComponentActivity() {
         if (!item.isFolder) {
             return
         }
-
         calibreViewModel.setLoading(true)
         calibreViewModel.clearError()
-
-        calibreLibraryFound = false
-
+        calibreViewModel.setCalibreLibraryFound(false)
         lifecycleScope.launch {
             try {
                 val children =
@@ -489,16 +473,13 @@ class MainActivity : ComponentActivity() {
                             ignoreCase = true
                         )
                     }
-
-                currentItems = children
-                currentPath = currentPath + item.name
-
+                calibreViewModel.setCurrentItems(children)
+                calibreViewModel.setCurrentPath(calibreViewModel.uiState.value.currentPath + item.name)
                 if (metadataItem != null) {
-                    calibreLibraryFound = true
+                    calibreViewModel.setCalibreLibraryFound(true)
                     selectedCalibreFolderId = item.id
                     metadataDbItemId = metadataItem.id
                 }
-
                 calibreViewModel.setLoading(false)
 
             } catch (e: Exception) {
@@ -667,11 +648,10 @@ class MainActivity : ComponentActivity() {
                 db.close()
 
                 runOnUiThread {
-                    books = loadedBooks
-                    libraryLoaded = true
+                    calibreViewModel.setBooks( loadedBooks )
+                    calibreViewModel.setLibraryLoaded(true)
                     calibreViewModel.setLoading(false)
                 }
-
             } catch (e: Exception) {
 
                 android.util.Log.e(
