@@ -32,7 +32,6 @@ class LibraryScreen {
 @Composable
 fun LibraryScreen(
     books: List<Book>,
-    accessToken: String,
     rootFolderId: String?,
     coverRepository: CoverRepository,
     viewMode: LibraryViewMode,
@@ -101,7 +100,6 @@ fun LibraryScreen(
 
                 LibraryList(
                     books = books,
-                    accessToken = accessToken,
                     rootFolderId = rootFolderId,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook
@@ -112,7 +110,6 @@ fun LibraryScreen(
 
                 LibraryGrid(
                     books = books,
-                    accessToken = accessToken,
                     rootFolderId = rootFolderId,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook

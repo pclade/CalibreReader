@@ -8,15 +8,12 @@ import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.BookFile
 
-class LibraryList {
-}
 /**
  * Displays the books of a Calibre library as a vertical list.
  */
 @Composable
 fun LibraryList(
     books: List<Book>,
-    accessToken: String,
     rootFolderId: String?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
@@ -31,7 +28,6 @@ fun LibraryList(
 
             BookRow(
                 book = book,
-                accessToken = accessToken,
                 rootFolderId = rootFolderId,
                 coverRepository = coverRepository,
                 onOpenBook = onOpenBook

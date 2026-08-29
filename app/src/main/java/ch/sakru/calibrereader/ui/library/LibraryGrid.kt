@@ -9,15 +9,12 @@ import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.BookFile
 
-class LibraryGrid {
-}
 /**
  * Displays the books of a Calibre library in an adaptive cover grid.
  */
 @Composable
 fun LibraryGrid(
     books: List<Book>,
-    accessToken: String,
     rootFolderId: String?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
@@ -36,7 +33,6 @@ fun LibraryGrid(
 
             BookGridItem(
                 book = book,
-                accessToken = accessToken,
                 rootFolderId = rootFolderId,
                 coverRepository = coverRepository,
                 onOpenBook = onOpenBook

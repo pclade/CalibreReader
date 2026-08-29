@@ -31,7 +31,6 @@ class BookGridItem {
 @Composable
 fun BookGridItem(
     book: Book,
-    accessToken: String,
     rootFolderId: String?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
@@ -61,7 +60,6 @@ fun BookGridItem(
 
                     coverRepository.loadCover(
                         book = book,
-                        accessToken = accessToken,
                         rootFolderId = rootFolderId
                     )
                 }

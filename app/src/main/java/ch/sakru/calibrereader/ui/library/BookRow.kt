@@ -38,7 +38,6 @@ class BookRow {
 @Composable
 fun BookRow(
     book: Book,
-    accessToken: String,
     rootFolderId: String?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
@@ -67,7 +66,6 @@ fun BookRow(
 
                     coverRepository.loadCover(
                         book = book,
-                        accessToken = accessToken,
                         rootFolderId = rootFolderId
                     )
                 }

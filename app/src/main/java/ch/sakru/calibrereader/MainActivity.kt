@@ -14,7 +14,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
-import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import ch.sakru.calibrereader.auth.MicrosoftAuthManager
 import ch.sakru.calibrereader.onedrive.GraphClient
@@ -38,22 +37,21 @@ import ch.sakru.calibrereader.ui.library.LibraryScreen
 import androidx.activity.viewModels
 import ch.sakru.calibrereader.viewmodel.CalibreViewModel
 import androidx.compose.runtime.collectAsState
+import ch.sakru.calibrereader.calibre.CalibreRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
-    private var libraryViewMode by mutableStateOf(LibraryViewMode.LIST)
     private lateinit var libraryStorage: LibraryStorage
     private var metadataDbItemId by mutableStateOf<String?>(null)
     private var accessToken by mutableStateOf("")
     private var selectedCalibreFolderId by   mutableStateOf<String?>(null)
-    private val coverRepository = CoverRepository()
+    private lateinit var coverRepository: CoverRepository
     private lateinit var authManager: MicrosoftAuthManager
     private lateinit var oneDriveStorage: OneDriveStorage
-    private var msalReady by mutableStateOf(false)
-    private var userName by mutableStateOf("")
-    private var loggedIn by mutableStateOf(false)
 
-
+    private val calibreRepository = CalibreRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,9 +59,9 @@ class MainActivity : ComponentActivity() {
         libraryStorage =
             LibraryStorage(applicationContext)
 
-        Thread {
+        lifecycleScope.launch {
 
-            kotlinx.coroutines.runBlocking {
+            try {
 
                 val libraries =
                     libraryStorage.loadLibraries()
@@ -71,26 +69,29 @@ class MainActivity : ComponentActivity() {
                 val viewMode =
                     libraryStorage.loadViewMode()
 
-                runOnUiThread {
-                    calibreViewModel.setSavedLibraries(
-                        libraries
-                    )
-                    calibreViewModel.setLibraryViewMode(
-                        viewMode
-                    )
-                }
-            }
+                calibreViewModel.setSavedLibraries(
+                    libraries
+                )
 
-        }.start()
+                calibreViewModel.setLibraryViewMode(
+                    viewMode
+                )
+
+            } catch (e: Exception) {
+
+                calibreViewModel.setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+            }
+        }
 
         authManager = MicrosoftAuthManager(
             context = applicationContext,
             onReadyChanged = { ready ->
-
                 runOnUiThread {
-                    msalReady = ready
+                    calibreViewModel.setMsalReady(ready)
                 }
-
                 if (ready) {
                     checkExistingLogin()
                 }
@@ -105,39 +106,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-
-        oneDriveStorage = OneDriveStorage(
-            graphClient = GraphClient(),
-            accessTokenProvider = {
-                accessToken
-            }
-        )
-
+        oneDriveStorage = OneDriveStorage(graphClient = GraphClient(), accessTokenProvider = { accessToken })
+        coverRepository = CoverRepository(cloudStorage = oneDriveStorage)
         setContent {
-
             val uiState by
             calibreViewModel.uiState.collectAsState()
-
             MaterialTheme {
-
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-
-                    if (!loggedIn) {
-
+                    if (!uiState.loggedIn) {
                         LoginScreen(
-                            msalReady = msalReady,
+                            msalReady = uiState.msalReady,
                             isLoading = uiState.isLoading,
                             errorMessage = uiState.errorMessage,
                             onLogin = ::startLogin
                         )
-
                     } else if (uiState.libraryLoaded) {
-
                         LibraryScreen(
                             books = uiState.books,
-                            accessToken = accessToken,
                             rootFolderId = selectedCalibreFolderId,
                             coverRepository = coverRepository,
                             viewMode = uiState.libraryViewMode,
@@ -190,7 +177,7 @@ class MainActivity : ComponentActivity() {
                     } else {
 
                         OneDriveScreen(
-                            userName = userName,
+                            userName = uiState.userName,
                             currentPath = uiState.currentPath,
                             isLoading = uiState.isLoading,
                             items = uiState.currentItems,
@@ -227,14 +214,13 @@ class MainActivity : ComponentActivity() {
         calibreViewModel.setLoading(true)
         calibreViewModel.clearError()
 
-        Thread {
+        lifecycleScope.launch {
 
             try {
 
                 val children =
-                    GraphClient().getChildren(
-                        accessToken = accessToken,
-                        itemId = library.storageRootId
+                    oneDriveStorage.listChildren(
+                        library.storageRootId
                     )
 
                 val metadataItem =
@@ -247,48 +233,38 @@ class MainActivity : ComponentActivity() {
 
                 if (metadataItem == null) {
 
-                    runOnUiThread {
+                    calibreViewModel.setError(
+                        "metadata.db wurde nicht gefunden."
+                    )
 
-                        calibreViewModel.setError(
-                            "metadata.db wurde nicht gefunden."
-                        )
+                    calibreViewModel.setLoading(false)
 
-                        calibreViewModel.setLoading(false)
-                    }
-
-                    return@Thread
+                    return@launch
                 }
 
                 metadataDbItemId =
                     metadataItem.id
 
-                runOnUiThread {
-
-                    calibreViewModel.setCurrentPath(
-                        listOf(
-                            "OneDrive",
-                            library.name
-                        )
+                calibreViewModel.setCurrentPath(
+                    listOf(
+                        "OneDrive",
+                        library.name
                     )
+                )
 
-                    loadCalibreDatabase()
-                }
+                loadCalibreDatabase()
 
             } catch (e: Exception) {
 
-                runOnUiThread {
+                calibreViewModel.setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
 
-                    calibreViewModel.setError(
-                        e.message ?: e.javaClass.simpleName
-                    )
-
-                    calibreViewModel.setLoading(false)
-                }
+                calibreViewModel.setLoading(false)
             }
-
-        }.start()
-    }
-    /**
+        }
+    }    /**
      * Loads the root folder of the currently authenticated cloud storage.
      */
     private fun loadRootFolder() {
@@ -330,7 +306,7 @@ class MainActivity : ComponentActivity() {
                 id = folderId,
                 name = libraryName,
                 storageRootId = folderId,
-                account = userName,
+                account = calibreViewModel.uiState.value.userName,
                 provider = StorageProvider.ONEDRIVE
             )
 
@@ -372,24 +348,30 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    /**
+     * Persists the selected library view mode.
+     */
     private fun changeViewMode(
         mode: LibraryViewMode
     ) {
 
-        libraryViewMode = mode
+        lifecycleScope.launch {
 
-        Thread {
-
-            kotlinx.coroutines.runBlocking {
+            try {
 
                 libraryStorage.saveViewMode(
                     mode
                 )
-            }
 
-        }.start()
-    }
-    private fun checkExistingLogin() {
+            } catch (e: Exception) {
+
+                calibreViewModel.setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+            }
+        }
+    }    private fun checkExistingLogin() {
 
         authManager.getCurrentAccount(
 
@@ -397,7 +379,7 @@ class MainActivity : ComponentActivity() {
 
                 if (account == null) {
                     runOnUiThread {
-                        loggedIn = false
+                        calibreViewModel.setLoggedIn(false)
                     }
                     return@getCurrentAccount
                 }
@@ -407,21 +389,14 @@ class MainActivity : ComponentActivity() {
                     account = account,
 
                     onSuccess = { result ->
-
-                        accessToken =
-                            result.accessToken
-
-                        userName =
-                            result.account.username
-
-                        loggedIn = true
-
+                        accessToken = result.accessToken
+                        calibreViewModel.setUserName(result.account.username)
+                        calibreViewModel.setLoggedIn(true)
                         loadRootFolder()
                     },
-
                     onError = {
                         runOnUiThread {
-                            loggedIn = false
+                            calibreViewModel.setLoggedIn(false)
                         }
                     }
                 )
@@ -493,18 +468,18 @@ class MainActivity : ComponentActivity() {
     }
     private fun loadCalibreDatabase() {
 
-        val itemId = metadataDbItemId ?: return
+        val itemId =
+            metadataDbItemId ?: return
 
         calibreViewModel.setLoading(true)
         calibreViewModel.clearError()
 
-        Thread {
+        lifecycleScope.launch {
 
             try {
 
                 val data =
-                    GraphClient().downloadFile(
-                        accessToken,
+                    oneDriveStorage.downloadFile(
                         itemId
                     )
 
@@ -514,144 +489,34 @@ class MainActivity : ComponentActivity() {
                         "metadata.db"
                     )
 
-                dbFile.writeBytes(data)
+                dbFile.writeBytes(
+                    data
+                )
 
-                val db =
-                    SQLiteDatabase.openDatabase(
-                        dbFile.absolutePath,
-                        null,
-                        SQLiteDatabase.OPEN_READONLY
-                    )
-
-                // 1. Buchdateien separat aus Tabelle "data" lesen
-                val filesByBook =
-                    mutableMapOf<Long, MutableList<BookFile>>()
-
-                val fileCursor =
-                    db.rawQuery(
-                        """
-                SELECT
-                    book,
-                    name,
-                    format
-                FROM data
-                ORDER BY book
-                """.trimIndent(),
-                        null
-                    )
-
-                while (fileCursor.moveToNext()) {
-
-                    val bookId =
-                        fileCursor.getLong(
-                            fileCursor.getColumnIndexOrThrow("book")
+                val loadedBooks =
+                    withContext(Dispatchers.IO) {
+                        calibreRepository.loadBooks(
+                            dbFile
                         )
-
-                    val fileName =
-                        fileCursor.getString(
-                            fileCursor.getColumnIndexOrThrow("name")
-                        )
-
-                    val format =
-                        fileCursor.getString(
-                            fileCursor.getColumnIndexOrThrow("format")
-                        )
-
-                    filesByBook
-                        .getOrPut(bookId) {
-                            mutableListOf()
-                        }
-                        .add(
-                            BookFile(
-                                name = fileName,
-                                format = format
-                            )
-                        )
-                }
-
-                fileCursor.close()
+                    }
 
                 android.util.Log.d(
                     "CalibreReader",
-                    "Dateizuordnungen für ${filesByBook.size} Bücher gefunden"
+                    "${loadedBooks.size} Bücher geladen"
                 )
 
-                // 2. Bücher und Autoren lesen
-                val cursor =
-                    db.rawQuery(
-                        """
-                SELECT
-                    b.id,
-                    b.title,
-                    b.path,
-                    GROUP_CONCAT(DISTINCT a.name) AS authors
-                FROM books b
-                LEFT JOIN books_authors_link bal
-                    ON bal.book = b.id
-                LEFT JOIN authors a
-                    ON a.id = bal.author
-                GROUP BY
-                    b.id,
-                    b.title,
-                    b.path
-                ORDER BY
-                    b.title COLLATE NOCASE
-                """.trimIndent(),
-                        null
-                    )
+                calibreViewModel.setBooks(
+                    loadedBooks
+                )
 
-                val loadedBooks =
-                    mutableListOf<Book>()
+                calibreViewModel.setLibraryLoaded(
+                    true
+                )
 
-                while (cursor.moveToNext()) {
+                calibreViewModel.setLoading(
+                    false
+                )
 
-                    val id =
-                        cursor.getLong(
-                            cursor.getColumnIndexOrThrow("id")
-                        )
-
-                    val title =
-                        cursor.getString(
-                            cursor.getColumnIndexOrThrow("title")
-                        )
-
-                    val path =
-                        cursor.getString(
-                            cursor.getColumnIndexOrThrow("path")
-                        )
-
-                    val authors =
-                        cursor.getString(
-                            cursor.getColumnIndexOrThrow("authors")
-                        ) ?: "Unbekannter Autor"
-
-                    val bookFiles =
-                        filesByBook[id] ?: emptyList()
-
-                    val formats =
-                        bookFiles
-                            .map { it.format }
-                            .distinct()
-
-                    loadedBooks +=
-                        Book(
-                            id = id,
-                            title = title,
-                            authors = authors,
-                            path = path,
-                            formats = formats,
-                            files = bookFiles
-                        )
-                }
-
-                cursor.close()
-                db.close()
-
-                runOnUiThread {
-                    calibreViewModel.setBooks( loadedBooks )
-                    calibreViewModel.setLibraryLoaded(true)
-                    calibreViewModel.setLoading(false)
-                }
             } catch (e: Exception) {
 
                 android.util.Log.e(
@@ -660,29 +525,16 @@ class MainActivity : ComponentActivity() {
                     e
                 )
 
-                runOnUiThread {
-                    calibreViewModel.setError(
-                        e.message ?: e.javaClass.simpleName
-                    )
-                    calibreViewModel.setLoading(false)
-                }
+                calibreViewModel.setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                calibreViewModel.setLoading(
+                    false
+                )
             }
-
-        }.start()
-    }
-
-    private fun loadCover(book: Book): ByteArray? {
-
-        val rootFolderId = selectedCalibreFolderId ?: return null
-
-        val coverPath =
-            "${book.path}/cover.jpg"
-
-        return GraphClient().downloadFileByRelativePath(
-            accessToken = accessToken,
-            rootFolderId = rootFolderId,
-            relativePath = coverPath
-        )
+        }
     }
     private fun openBook(
         book: Book,
@@ -719,7 +571,7 @@ class MainActivity : ComponentActivity() {
         calibreViewModel.setLoading(true)
         calibreViewModel.clearError()
 
-        Thread {
+        lifecycleScope.launch {
 
             try {
 
@@ -731,37 +583,43 @@ class MainActivity : ComponentActivity() {
 
                 android.util.Log.d(
                     "CalibreReader",
-                    "OneDrive Buchpfad: $relativePath"
+                    "Cloud book path: $relativePath"
                 )
 
                 val bytes =
-                    GraphClient()
-                        .downloadFileByRelativePath(
-                            accessToken = accessToken,
-                            rootFolderId = rootFolderId,
-                            relativePath = relativePath
-                        )
+                    oneDriveStorage.downloadFileByPath(
+                        rootId = rootFolderId,
+                        relativePath = relativePath
+                    )
 
                 android.util.Log.d(
                     "CalibreReader",
                     "Buch heruntergeladen: ${bytes.size} Bytes"
                 )
 
-                val booksDirectory =
-                    File(
-                        filesDir,
-                        "books"
-                    )
-
-                booksDirectory.mkdirs()
-
                 val localFile =
-                    File(
-                        booksDirectory,
-                        "${book.id}.$extension"
-                    )
+                    withContext(Dispatchers.IO) {
 
-                localFile.writeBytes(bytes)
+                        val booksDirectory =
+                            File(
+                                filesDir,
+                                "books"
+                            )
+
+                        booksDirectory.mkdirs()
+
+                        val file =
+                            File(
+                                booksDirectory,
+                                "${book.id}.$extension"
+                            )
+
+                        file.writeBytes(
+                            bytes
+                        )
+
+                        file
+                    }
 
                 android.util.Log.d(
                     "CalibreReader",
@@ -773,31 +631,34 @@ class MainActivity : ComponentActivity() {
                     "Lokale Dateigrösse: ${localFile.length()} Bytes"
                 )
 
-                runOnUiThread {
+                calibreViewModel.setLoading(
+                    false
+                )
 
-                    openLocalBook(
-                        localFile,
-                        extension
-                    )
-
-                    calibreViewModel.setLoading(false)
-                }
+                openLocalBook(
+                    localFile,
+                    extension
+                )
 
             } catch (e: Exception) {
 
-                runOnUiThread {
+                android.util.Log.e(
+                    "CalibreReader",
+                    "Fehler beim Öffnen des Buches",
+                    e
+                )
 
-                    calibreViewModel.setError(
-                        e.message ?: e.javaClass.simpleName
-                    )
+                calibreViewModel.setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
 
-                    calibreViewModel.setLoading(false)
-                }
+                calibreViewModel.setLoading(
+                    false
+                )
             }
-
-        }.start()
+        }
     }
-
     private fun openLocalBook(
         file: File,
         extension: String
@@ -885,15 +746,9 @@ class MainActivity : ComponentActivity() {
             activity = this,
 
             onSuccess = { result ->
-
-                accessToken =
-                    result.accessToken
-
-                userName =
-                    result.account.username
-
-                loggedIn = true
-
+                accessToken = result.accessToken
+                calibreViewModel.setUserName(result.account.username)
+                calibreViewModel.setLoggedIn(true)
                 loadRootFolder()
             },
 

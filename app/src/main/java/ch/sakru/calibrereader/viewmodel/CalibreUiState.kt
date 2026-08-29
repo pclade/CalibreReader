@@ -21,5 +21,8 @@ data class CalibreUiState(
     val currentPath: List<String> = emptyList(),
     val calibreLibraryFound: Boolean = false,
     val libraryLoaded: Boolean = false,
-    val showLibrarySelection: Boolean = true
+    val showLibrarySelection: Boolean = true,
+    val loggedIn: Boolean = false,
+    val userName: String = "",
+    val msalReady: Boolean = false
 )

@@ -157,4 +157,38 @@ class CalibreViewModel : ViewModel() {
                 showLibrarySelection = show
             )
     }
+    /**
+     * Updates the authentication state.
+     */
+    fun setLoggedIn(
+        loggedIn: Boolean
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                loggedIn = loggedIn
+            )
+    }
+
+    /**
+     * Updates the display name of the authenticated user.
+     */
+    fun setUserName(
+        userName: String
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                userName = userName
+            )
+    }
+    /**
+     * Updates whether the Microsoft authentication client is ready.
+     */
+    fun setMsalReady(
+        ready: Boolean
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                msalReady = ready
+            )
+    }
 }
