@@ -133,31 +133,44 @@ class MainActivity : ComponentActivity() {
                             },
                             onOpenBook = { book, bookFile ->
 
-                                calibreViewModel.downloadBook(
-                                    book = book,
-                                    bookFile = bookFile,
-                                    cloudStorage = app.oneDriveStorage,
-                                    onSuccess = { downloadedBook ->
+                                val cloudStorage =
+                                    activeCloudStorage
 
-                                        lifecycleScope.launch {
+                                if (cloudStorage == null) {
 
-                                            try {
+                                    calibreViewModel.setError(
+                                        "Kein aktiver Cloud-Speicher verfügbar."
+                                    )
 
-                                                app.bookOpener.open(
-                                                    downloadedBook
-                                                )
+                                } else {
 
-                                            } catch (e: Exception) {
+                                    calibreViewModel.downloadBook(
+                                        book = book,
+                                        bookFile = bookFile,
+                                        cloudStorage = cloudStorage,
+                                        onSuccess = { downloadedBook ->
 
-                                                calibreViewModel.setError(
-                                                    e.message
-                                                        ?: e.javaClass.simpleName
-                                                )
+                                            lifecycleScope.launch {
+
+                                                try {
+
+                                                    app.bookOpener.open(
+                                                        downloadedBook
+                                                    )
+
+                                                } catch (e: Exception) {
+
+                                                    calibreViewModel.setError(
+                                                        e.message
+                                                            ?: e.javaClass.simpleName
+                                                    )
+                                                }
                                             }
                                         }
-                                    }
-                                )
-                            }                        )
+                                    )
+                                }
+                            }
+                        )
 
                     } else if (uiState.showLibrarySelection) {
 
