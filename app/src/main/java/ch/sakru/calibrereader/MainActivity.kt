@@ -139,15 +139,17 @@ class MainActivity : ComponentActivity() {
 
                             onLibraryClick = { library ->
 
-                                calibreViewModel.loadSavedLibrary(
+                                calibreViewModel.loadSavedLibraryAndBooks(
                                     library = library,
                                     cloudStorage = app.oneDriveStorage,
-                                    onReady = {
-                                        loadCalibreDatabase()
-                                    }
+                                    calibreRepository = app.calibreRepository,
+                                    databaseFile =
+                                        File(
+                                            filesDir,
+                                            "metadata.db"
+                                        )
                                 )
                             },
-
                             onAddLibrary = {
 
                                 calibreViewModel.setShowLibrarySelection(
@@ -181,7 +183,16 @@ class MainActivity : ComponentActivity() {
                             onUseLibrary = {
 
                                 saveCurrentLibrary()
-                                loadCalibreDatabase()
+
+                                calibreViewModel.loadCalibreDatabase(
+                                    cloudStorage = app.oneDriveStorage,
+                                    calibreRepository = app.calibreRepository,
+                                    databaseFile =
+                                        File(
+                                            filesDir,
+                                            "metadata.db"
+                                        )
+                                )
                             }
                         )
                     }
@@ -328,74 +339,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-    }
-    /**
-     * Downloads and loads the metadata database of the active Calibre library.
-     */
-    private fun loadCalibreDatabase() {
-        val itemId = calibreViewModel.sessionState.value.metadataDbItemId?: return
-        calibreViewModel.setLoading(true)
-        calibreViewModel.clearError()
-        lifecycleScope.launch {
-            try {
-
-                val data =
-                    app.oneDriveStorage.downloadFile(
-                        itemId
-                    )
-
-                val dbFile =
-                    File(
-                        filesDir,
-                        "metadata.db"
-                    )
-
-                dbFile.writeBytes(
-                    data
-                )
-
-                val loadedBooks =
-                    withContext(Dispatchers.IO) {
-                        app.calibreRepository.loadBooks(
-                            dbFile
-                        )
-                    }
-
-                android.util.Log.d(
-                    "CalibreReader",
-                    "${loadedBooks.size} Bücher geladen"
-                )
-
-                calibreViewModel.setBooks(
-                    loadedBooks
-                )
-
-                calibreViewModel.setLibraryLoaded(
-                    true
-                )
-
-                calibreViewModel.setLoading(
-                    false
-                )
-
-            } catch (e: Exception) {
-
-                android.util.Log.e(
-                    "CalibreReader",
-                    "Fehler beim Laden der Calibre-Datenbank",
-                    e
-                )
-
-                calibreViewModel.setError(
-                    e.message
-                        ?: e.javaClass.simpleName
-                )
-
-                calibreViewModel.setLoading(
-                    false
-                )
-            }
-        }
     }
     private fun openBook(
         book: Book,

@@ -11,7 +11,10 @@ import ch.sakru.calibrereader.storage.CloudItem
 import androidx.lifecycle.viewModelScope
 import ch.sakru.calibrereader.storage.CloudStorage
 import kotlinx.coroutines.launch
-
+import ch.sakru.calibrereader.calibre.CalibreRepository
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 /**
  * Coordinates application state and user actions for CalibreReader.
  *
@@ -328,8 +331,7 @@ class CalibreViewModel : ViewModel() {
 
     fun loadSavedLibrary(
         library: SavedLibrary,
-        cloudStorage: CloudStorage,
-        onReady: () -> Unit
+        cloudStorage: CloudStorage
     ) {
         setSelectedLibraryRootId(
             library.storageRootId
@@ -376,7 +378,160 @@ class CalibreViewModel : ViewModel() {
                     )
                 )
 
-                onReady()
+            } catch (e: Exception) {
+
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                setLoading(
+                    false
+                )
+            }
+        }
+    }
+
+    fun loadCalibreDatabase(
+        cloudStorage: CloudStorage,
+        calibreRepository: CalibreRepository,
+        databaseFile: File
+    ) {
+        val itemId =
+            sessionState
+                .value
+                .metadataDbItemId
+                ?: return
+
+        setLoading(true)
+        clearError()
+
+        viewModelScope.launch {
+            try {
+                val data =
+                    cloudStorage.downloadFile(
+                        itemId
+                    )
+
+                withContext(Dispatchers.IO) {
+                    databaseFile.writeBytes(
+                        data
+                    )
+                }
+
+                val loadedBooks =
+                    withContext(Dispatchers.IO) {
+                        calibreRepository.loadBooks(
+                            databaseFile
+                        )
+                    }
+
+                setBooks(
+                    loadedBooks
+                )
+
+                setLibraryLoaded(
+                    true
+                )
+
+                setLoading(
+                    false
+                )
+
+            } catch (e: Exception) {
+
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                setLoading(
+                    false
+                )
+            }
+        }
+    }
+
+    fun loadSavedLibraryAndBooks(
+        library: SavedLibrary,
+        cloudStorage: CloudStorage,
+        calibreRepository: CalibreRepository,
+        databaseFile: File
+    ) {
+        setSelectedLibraryRootId(
+            library.storageRootId
+        )
+
+        setLoading(true)
+        clearError()
+
+        viewModelScope.launch {
+            try {
+                val children =
+                    cloudStorage.listChildren(
+                        library.storageRootId
+                    )
+
+                val metadataItem =
+                    children.firstOrNull {
+                        it.name.equals(
+                            "metadata.db",
+                            ignoreCase = true
+                        )
+                    }
+
+                if (metadataItem == null) {
+                    setError(
+                        "metadata.db wurde nicht gefunden."
+                    )
+
+                    setLoading(
+                        false
+                    )
+
+                    return@launch
+                }
+
+                setMetadataDbItemId(
+                    metadataItem.id
+                )
+
+                setCurrentPath(
+                    listOf(
+                        "OneDrive",
+                        library.name
+                    )
+                )
+
+                val data =
+                    cloudStorage.downloadFile(
+                        metadataItem.id
+                    )
+
+                withContext(Dispatchers.IO) {
+                    databaseFile.writeBytes(
+                        data
+                    )
+                }
+
+                val loadedBooks =
+                    withContext(Dispatchers.IO) {
+                        calibreRepository.loadBooks(
+                            databaseFile
+                        )
+                    }
+
+                setBooks(
+                    loadedBooks
+                )
+
+                setLibraryLoaded(
+                    true
+                )
+
+                setLoading(
+                    false
+                )
 
             } catch (e: Exception) {
 
