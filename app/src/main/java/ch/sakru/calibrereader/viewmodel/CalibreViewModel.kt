@@ -326,4 +326,70 @@ class CalibreViewModel : ViewModel() {
         }
     }
 
+    fun loadSavedLibrary(
+        library: SavedLibrary,
+        cloudStorage: CloudStorage,
+        onReady: () -> Unit
+    ) {
+        setSelectedLibraryRootId(
+            library.storageRootId
+        )
+
+        setLoading(true)
+        clearError()
+
+        viewModelScope.launch {
+            try {
+                val children =
+                    cloudStorage.listChildren(
+                        library.storageRootId
+                    )
+
+                val metadataItem =
+                    children.firstOrNull {
+                        it.name.equals(
+                            "metadata.db",
+                            ignoreCase = true
+                        )
+                    }
+
+                if (metadataItem == null) {
+                    setError(
+                        "metadata.db wurde nicht gefunden."
+                    )
+
+                    setLoading(
+                        false
+                    )
+
+                    return@launch
+                }
+
+                setMetadataDbItemId(
+                    metadataItem.id
+                )
+
+                setCurrentPath(
+                    listOf(
+                        "OneDrive",
+                        library.name
+                    )
+                )
+
+                onReady()
+
+            } catch (e: Exception) {
+
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                setLoading(
+                    false
+                )
+            }
+        }
+    }
+
 }

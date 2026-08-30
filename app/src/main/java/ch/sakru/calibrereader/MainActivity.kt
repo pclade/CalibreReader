@@ -139,8 +139,12 @@ class MainActivity : ComponentActivity() {
 
                             onLibraryClick = { library ->
 
-                                loadSavedLibrary(
-                                    library
+                                calibreViewModel.loadSavedLibrary(
+                                    library = library,
+                                    cloudStorage = app.oneDriveStorage,
+                                    onReady = {
+                                        loadCalibreDatabase()
+                                    }
                                 )
                             },
 
@@ -182,71 +186,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
-            }
-        }
-    }
-
-    /**
-     * Loads a previously saved Calibre library.
-     *
-     * The method locates the library's metadata.db file in cloud storage
-     * and starts loading the Calibre metadata.
-     *
-     * @param library saved library to load.
-     */
-    private fun loadSavedLibrary(
-        library: SavedLibrary
-    ) {
-        calibreViewModel.setSelectedLibraryRootId(library.storageRootId)
-        calibreViewModel.setLoading(true)
-        calibreViewModel.clearError()
-        lifecycleScope.launch {
-
-            try {
-
-                val children =
-                    app.oneDriveStorage.listChildren(
-                        library.storageRootId
-                    )
-
-                val metadataItem =
-                    children.firstOrNull {
-                        it.name.equals(
-                            "metadata.db",
-                            ignoreCase = true
-                        )
-                    }
-
-                if (metadataItem == null) {
-
-                    calibreViewModel.setError(
-                        "metadata.db wurde nicht gefunden."
-                    )
-
-                    calibreViewModel.setLoading(false)
-
-                    return@launch
-                }
-
-                calibreViewModel.setMetadataDbItemId(metadataItem.id)
-
-                calibreViewModel.setCurrentPath(
-                    listOf(
-                        "OneDrive",
-                        library.name
-                    )
-                )
-
-                loadCalibreDatabase()
-
-            } catch (e: Exception) {
-
-                calibreViewModel.setError(
-                    e.message
-                        ?: e.javaClass.simpleName
-                )
-
-                calibreViewModel.setLoading(false)
             }
         }
     }
