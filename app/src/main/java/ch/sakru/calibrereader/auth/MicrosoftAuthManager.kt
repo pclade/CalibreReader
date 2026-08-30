@@ -13,6 +13,7 @@ import ch.sakru.calibrereader.R
 
 class MicrosoftAuthManager(
     context: Context,
+    private val authSession: AuthSession,
     private val onReadyChanged: (Boolean) -> Unit,
     private val onInitializationError: (Exception) -> Unit
 ) {
@@ -38,9 +39,19 @@ class MicrosoftAuthManager(
         )
     }
 
+    /**
+     * Starts an interactive Microsoft sign-in.
+     *
+     * The acquired access token is stored in the current authentication session.
+     *
+     * @param activity Android activity used by MSAL for interactive authentication.
+     * @param onSuccess called with the authenticated application user.
+     * @param onError called when authentication fails.
+     * @param onCancel called when the user cancels authentication.
+     */
     fun signIn(
         activity: Activity,
-        onSuccess: (IAuthenticationResult) -> Unit,
+        onSuccess: (AuthenticatedUser) -> Unit,
         onError: (Exception) -> Unit,
         onCancel: () -> Unit
     ) {
@@ -55,39 +66,64 @@ class MicrosoftAuthManager(
             return
         }
 
-        val callback = object : AuthenticationCallback {
+        val callback =
+            object : AuthenticationCallback {
 
-            override fun onSuccess(
-                authenticationResult: IAuthenticationResult
-            ) {
-                onSuccess(authenticationResult)
+                override fun onSuccess(
+                    authenticationResult: IAuthenticationResult
+                ) {
+                    authSession.updateAccessToken(
+                        authenticationResult.accessToken
+                    )
+
+                    onSuccess(
+                        AuthenticatedUser(
+                            userName =
+                                authenticationResult.account.username
+                        )
+                    )
+                }
+
+                override fun onError(
+                    exception: MsalException
+                ) {
+                    onError(exception)
+                }
+
+                override fun onCancel() {
+                    onCancel()
+                }
             }
 
-            override fun onError(exception: MsalException) {
-                onError(exception)
-            }
-
-            override fun onCancel() {
-                onCancel()
-            }
-        }
-
-        val parameters = SignInParameters.builder()
-            .withActivity(activity)
-            .withScopes(
-                listOf(
-                    "User.Read",
-                    "Files.Read"
+        val parameters =
+            SignInParameters.builder()
+                .withActivity(activity)
+                .withScopes(
+                    listOf(
+                        "User.Read",
+                        "Files.Read"
+                    )
                 )
-            )
-            .withCallback(callback)
-            .build()
+                .withCallback(callback)
+                .build()
 
-        app.signIn(parameters)
+        app.signIn(
+            parameters
+        )
     }
-
-    fun getCurrentAccount(
-        onAccountFound: (com.microsoft.identity.client.IAccount?) -> Unit,
+    /**
+     * Restores an existing authenticated Microsoft session.
+     *
+     * If an account exists, a fresh access token is acquired silently
+     * and stored in the authentication session.
+     *
+     * @param onSuccess called with the authenticated user when a session exists.
+     * @param onNoAccount called when no authenticated account exists.
+     * @param onError called when session restoration fails.
+     */
+    fun restoreSession(
+        onSuccess: (AuthenticatedUser) -> Unit,
+        onNoAccount: () -> Unit,
         onError: (Exception) -> Unit
     ) {
         val app = msalApp
@@ -108,26 +144,39 @@ class MicrosoftAuthManager(
                 override fun onAccountLoaded(
                     activeAccount: com.microsoft.identity.client.IAccount?
                 ) {
-                    onAccountFound(activeAccount)
+                    if (activeAccount == null) {
+                        onNoAccount()
+                        return
+                    }
+
+                    acquireTokenSilent(
+                        account = activeAccount,
+                        onSuccess = onSuccess,
+                        onError = onError
+                    )
                 }
 
                 override fun onAccountChanged(
                     priorAccount: com.microsoft.identity.client.IAccount?,
                     currentAccount: com.microsoft.identity.client.IAccount?
                 ) {
-                    onAccountFound(currentAccount)
+                    if (currentAccount == null) {
+                        authSession.clear()
+                        onNoAccount()
+                    }
                 }
 
-                override fun onError(exception: MsalException) {
+                override fun onError(
+                    exception: MsalException
+                ) {
                     onError(exception)
                 }
             }
         )
     }
-
-    fun acquireTokenSilent(
+    private fun acquireTokenSilent(
         account: com.microsoft.identity.client.IAccount,
-        onSuccess: (IAuthenticationResult) -> Unit,
+        onSuccess: (AuthenticatedUser) -> Unit,
         onError: (Exception) -> Unit
     ) {
         val app = msalApp
@@ -153,13 +202,23 @@ class MicrosoftAuthManager(
                 override fun onSuccess(
                     authenticationResult: IAuthenticationResult
                 ) {
-                    onSuccess(authenticationResult)
+                    authSession.updateAccessToken(
+                        authenticationResult.accessToken
+                    )
+
+                    onSuccess(
+                        AuthenticatedUser(
+                            userName =
+                                authenticationResult.account.username
+                        )
+                    )
                 }
 
-                override fun onError(exception: MsalException) {
+                override fun onError(
+                    exception: MsalException
+                ) {
                     onError(exception)
                 }
             }
         )
-    }
-}
+    }}

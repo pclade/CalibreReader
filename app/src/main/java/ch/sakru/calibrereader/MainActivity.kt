@@ -61,26 +61,35 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        authManager = MicrosoftAuthManager(
-            context = applicationContext,
-            onReadyChanged = { ready ->
-                runOnUiThread {
-                    calibreViewModel.setMsalReady(ready)
-                }
-                if (ready) {
-                    checkExistingLogin()
-                }
-            },
-            onInitializationError = { error ->
+        authManager =
+            MicrosoftAuthManager(
+                context = applicationContext,
+                authSession = app.authSession,
 
-                runOnUiThread {
+                onReadyChanged = { ready ->
 
-                    calibreViewModel.setError(
-                        "MSAL-Initialisierung fehlgeschlagen:\n${error.message}"
-                    )
+                    runOnUiThread {
+                        calibreViewModel.setMsalReady(
+                            ready
+                        )
+                    }
+
+                    if (ready) {
+                        checkExistingLogin()
+                    }
+                },
+
+                onInitializationError = { error ->
+
+                    runOnUiThread {
+
+                        calibreViewModel.setError(
+                            "MSAL-Initialisierung fehlgeschlagen:\n${error.message}"
+                        )
+                    }
                 }
-            }
-        )
+            )
+
         setContent {
             val uiState by
             calibreViewModel.uiState.collectAsState()
@@ -213,42 +222,44 @@ class MainActivity : ComponentActivity() {
 
     private fun checkExistingLogin() {
 
-        authManager.getCurrentAccount(
+        authManager.restoreSession(
 
-            onAccountFound = { account ->
+            onSuccess = { user ->
 
-                if (account == null) {
-                    runOnUiThread {
-                        calibreViewModel.setLoggedIn(false)
-                    }
-                    return@getCurrentAccount
+                runOnUiThread {
+
+                    calibreViewModel.setUserName(
+                        user.userName
+                    )
+
+                    calibreViewModel.setLoggedIn(
+                        true
+                    )
+
+                    calibreViewModel.loadRootFolder(
+                        app.oneDriveStorage
+                    )
                 }
+            },
 
-                authManager.acquireTokenSilent(
+            onNoAccount = {
 
-                    account = account,
+                runOnUiThread {
 
-                    onSuccess = { result ->
-                        app.authSession.updateAccessToken(
-                            result.accessToken
-                        )
-                        calibreViewModel.setUserName(result.account.username)
-                        calibreViewModel.setLoggedIn(true)
-                        calibreViewModel.loadRootFolder(
-                            app.oneDriveStorage
-                        )
-                    },
-                    onError = {
-                        runOnUiThread {
-                            calibreViewModel.setLoggedIn(false)
-                        }
-                    }
-                )
+                    calibreViewModel.setLoggedIn(
+                        false
+                    )
+                }
             },
 
             onError = { exception ->
 
                 runOnUiThread {
+
+                    calibreViewModel.setLoggedIn(
+                        false
+                    )
+
                     calibreViewModel.setError(
                         exception.message
                             ?: exception.javaClass.simpleName
@@ -261,21 +272,30 @@ class MainActivity : ComponentActivity() {
     private fun startLogin() {
 
         calibreViewModel.clearError()
-        calibreViewModel.setLoading(true)
+        calibreViewModel.setLoading(
+            true
+        )
 
         authManager.signIn(
 
             activity = this,
 
-            onSuccess = { result ->
-                app.authSession.updateAccessToken(
-                    result.accessToken
-                )
-                calibreViewModel.setUserName(result.account.username)
-                calibreViewModel.setLoggedIn(true)
-                calibreViewModel.loadRootFolder(
-                    app.oneDriveStorage
-                )
+            onSuccess = { user ->
+
+                runOnUiThread {
+
+                    calibreViewModel.setUserName(
+                        user.userName
+                    )
+
+                    calibreViewModel.setLoggedIn(
+                        true
+                    )
+
+                    calibreViewModel.loadRootFolder(
+                        app.oneDriveStorage
+                    )
+                }
             },
 
             onError = { error ->
@@ -287,7 +307,9 @@ class MainActivity : ComponentActivity() {
                             ?: error.javaClass.simpleName
                     )
 
-                    calibreViewModel.setLoading(false)
+                    calibreViewModel.setLoading(
+                        false
+                    )
                 }
             },
 
@@ -299,9 +321,10 @@ class MainActivity : ComponentActivity() {
                         "Anmeldung wurde abgebrochen."
                     )
 
-                    calibreViewModel.setLoading(false)
+                    calibreViewModel.setLoading(
+                        false
+                    )
                 }
             }
         )
-    }
-}
+    }}
