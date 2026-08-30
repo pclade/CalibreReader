@@ -1,5 +1,7 @@
 package ch.sakru.calibrereader.ui.library
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.BookFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-class BookGridItem {
-}
 /**
  * Displays a single book cover in the grid representation.
  */
@@ -37,9 +39,17 @@ fun BookGridItem(
 ) {
 
     var bitmap by remember(book.id) {
-        mutableStateOf(
+
+        mutableStateOf<Bitmap?>(
             coverRepository
                 .getCachedCover(book.id)
+                ?.let { bytes ->
+                    BitmapFactory.decodeByteArray(
+                        bytes,
+                        0,
+                        bytes.size
+                    )
+                }
         )
     }
 
@@ -53,15 +63,23 @@ fun BookGridItem(
             rootFolderId != null
         ) {
 
-            bitmap =
-                kotlinx.coroutines.withContext(
-                    kotlinx.coroutines.Dispatchers.IO
-                ) {
+            val bytes =
+                coverRepository.loadCover(
+                    book = book,
+                    rootFolderId = rootFolderId
+                )
 
-                    coverRepository.loadCover(
-                        book = book,
-                        rootFolderId = rootFolderId
-                    )
+            bitmap =
+                bytes?.let { coverBytes ->
+
+                    withContext(Dispatchers.IO) {
+
+                        BitmapFactory.decodeByteArray(
+                            coverBytes,
+                            0,
+                            coverBytes.size
+                        )
+                    }
                 }
         }
     }

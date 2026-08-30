@@ -1,18 +1,14 @@
 package ch.sakru.calibrereader.calibre
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.storage.CloudStorage
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Loads and caches book covers from cloud storage.
+ * Loads and caches raw book cover data from cloud storage.
  *
- * The repository is independent of a specific cloud provider and accesses
- * files exclusively through the [CloudStorage] abstraction.
- *
- * Covers are cached in memory by book ID to avoid unnecessary downloads.
+ * The repository is independent of a specific cloud provider and does not
+ * depend on Android-specific image classes.
  *
  * @property cloudStorage cloud storage implementation used to load cover files.
  */
@@ -21,34 +17,34 @@ class CoverRepository(
 ) {
 
     private val memoryCache =
-        ConcurrentHashMap<Long, Bitmap>()
+        ConcurrentHashMap<Long, ByteArray>()
 
     /**
-     * Returns a previously cached cover if available.
+     * Returns cached cover data if available.
      *
      * @param bookId Calibre book identifier.
-     * @return cached cover or null if the cover has not been loaded yet.
+     * @return raw image data or null if the cover has not been loaded yet.
      */
     fun getCachedCover(
         bookId: Long
-    ): Bitmap? {
+    ): ByteArray? {
         return memoryCache[bookId]
     }
 
     /**
-     * Loads the cover of a book from cloud storage.
+     * Loads the cover image of a book.
      *
      * The expected Calibre cover location is:
      * `<book path>/cover.jpg`.
      *
      * @param book book whose cover should be loaded.
      * @param rootFolderId cloud storage ID of the Calibre library root.
-     * @return decoded cover bitmap or null if no cover could be loaded.
+     * @return raw JPEG image data or null if no cover could be loaded.
      */
     suspend fun loadCover(
         book: Book,
         rootFolderId: String
-    ): Bitmap? {
+    ): ByteArray? {
 
         memoryCache[book.id]?.let {
             return it
@@ -65,18 +61,10 @@ class CoverRepository(
                     relativePath = coverPath
                 )
 
-            val bitmap =
-                BitmapFactory.decodeByteArray(
-                    bytes,
-                    0,
-                    bytes.size
-                )
+            memoryCache[book.id] =
+                bytes
 
-            if (bitmap != null) {
-                memoryCache[book.id] = bitmap
-            }
-
-            bitmap
+            bytes
 
         } catch (e: Exception) {
 
