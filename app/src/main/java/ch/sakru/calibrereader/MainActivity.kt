@@ -25,10 +25,7 @@ import ch.sakru.calibrereader.ui.library.LibraryScreen
 import androidx.activity.viewModels
 import ch.sakru.calibrereader.viewmodel.CalibreViewModel
 import androidx.compose.runtime.collectAsState
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import ch.sakru.calibrereader.app.CalibreReaderApp
-import ch.sakru.calibrereader.model.DownloadedBook
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var app: CalibreReaderApp
@@ -123,13 +120,25 @@ class MainActivity : ComponentActivity() {
                                     cloudStorage = app.oneDriveStorage,
                                     onSuccess = { downloadedBook ->
 
-                                        openDownloadedBook(
-                                            downloadedBook
-                                        )
+                                        lifecycleScope.launch {
+
+                                            try {
+
+                                                app.bookOpener.open(
+                                                    downloadedBook
+                                                )
+
+                                            } catch (e: Exception) {
+
+                                                calibreViewModel.setError(
+                                                    e.message
+                                                        ?: e.javaClass.simpleName
+                                                )
+                                            }
+                                        }
                                     }
                                 )
-                            }
-                        )
+                            }                        )
 
                     } else if (uiState.showLibrarySelection) {
 
@@ -248,82 +257,6 @@ class MainActivity : ComponentActivity() {
             }
         )
     }
-    private fun openLocalBook(
-        file: File,
-        extension: String
-    ) {
-        android.util.Log.d(
-            "CalibreReader",
-            "openLocalBook: ${file.absolutePath}"
-        )
-
-        android.util.Log.d(
-            "CalibreReader",
-            "Existiert: ${file.exists()}, Grösse: ${file.length()}"
-        )
-
-        val uri =
-            androidx.core.content.FileProvider.getUriForFile(
-                this,
-                "${packageName}.fileprovider",
-                file
-            )
-
-        val mimeType =
-            when (extension.lowercase()) {
-
-                "pdf" ->
-                    "application/pdf"
-
-                "epub" ->
-                    "application/epub+zip"
-
-                else ->
-                    "application/octet-stream"
-            }
-
-        val intent =
-            android.content.Intent(
-                android.content.Intent.ACTION_VIEW
-            ).apply {
-
-                setDataAndType(
-                    uri,
-                    mimeType
-                )
-
-                addFlags(
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-
-        try {
-
-            android.util.Log.d(
-                "CalibreReader",
-                "Starte ACTION_VIEW für .$extension"
-            )
-
-            startActivity(
-                android.content.Intent.createChooser(
-                    intent,
-                    "Buch öffnen mit"
-                )
-            )
-
-        } catch (e: Exception) {
-
-            android.util.Log.e(
-                "CalibreReader",
-                "Reader konnte nicht gestartet werden",
-                e
-            )
-
-            calibreViewModel.setError(
-                "Keine passende App zum Öffnen von .$extension gefunden."
-            )
-        }
-    }
 
     private fun startLogin() {
 
@@ -371,50 +304,4 @@ class MainActivity : ComponentActivity() {
             }
         )
     }
-    private fun openDownloadedBook(
-        downloadedBook: DownloadedBook
-    ) {
-        lifecycleScope.launch {
-
-            try {
-
-                val localFile =
-                    withContext(Dispatchers.IO) {
-
-                        val booksDirectory =
-                            File(
-                                filesDir,
-                                "books"
-                            )
-
-                        booksDirectory.mkdirs()
-
-                        val file =
-                            File(
-                                booksDirectory,
-                                "${downloadedBook.bookId}.${downloadedBook.extension}"
-                            )
-
-                        file.writeBytes(
-                            downloadedBook.bytes
-                        )
-
-                        file
-                    }
-
-                openLocalBook(
-                    file = localFile,
-                    extension = downloadedBook.extension
-                )
-
-            } catch (e: Exception) {
-
-                calibreViewModel.setError(
-                    e.message
-                        ?: e.javaClass.simpleName
-                )
-            }
-        }
-    }
-
 }
