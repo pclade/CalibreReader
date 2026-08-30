@@ -37,6 +37,7 @@ import ch.sakru.calibrereader.ui.library.LibraryScreen
 import androidx.activity.viewModels
 import ch.sakru.calibrereader.viewmodel.CalibreViewModel
 import androidx.compose.runtime.collectAsState
+import ch.sakru.calibrereader.auth.AuthSession
 import ch.sakru.calibrereader.calibre.CalibreRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,7 +45,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var libraryStorage: LibraryStorage
-    private var accessToken by mutableStateOf("")
+    private val authSession = AuthSession()
     private lateinit var coverRepository: CoverRepository
     private lateinit var authManager: MicrosoftAuthManager
     private lateinit var oneDriveStorage: OneDriveStorage
@@ -104,7 +105,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-        oneDriveStorage = OneDriveStorage(graphClient = GraphClient(), accessTokenProvider = { accessToken })
+        oneDriveStorage = OneDriveStorage(
+            graphClient = GraphClient(),
+            accessTokenProvider = {
+                authSession.accessToken
+            }
+        )
         coverRepository = CoverRepository(cloudStorage = oneDriveStorage)
         setContent {
             val uiState by
@@ -385,7 +391,9 @@ class MainActivity : ComponentActivity() {
                     account = account,
 
                     onSuccess = { result ->
-                        accessToken = result.accessToken
+                        authSession.updateAccessToken(
+                            result.accessToken
+                        )
                         calibreViewModel.setUserName(result.account.username)
                         calibreViewModel.setLoggedIn(true)
                         loadRootFolder()
@@ -740,7 +748,9 @@ class MainActivity : ComponentActivity() {
             activity = this,
 
             onSuccess = { result ->
-                accessToken = result.accessToken
+                authSession.updateAccessToken(
+                    result.accessToken
+                )
                 calibreViewModel.setUserName(result.account.username)
                 calibreViewModel.setLoggedIn(true)
                 loadRootFolder()
