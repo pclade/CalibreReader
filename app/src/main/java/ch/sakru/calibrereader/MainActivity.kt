@@ -14,12 +14,7 @@ import androidx.compose.ui.Modifier
 
 import java.io.File
 import ch.sakru.calibrereader.auth.MicrosoftAuthManager
-import ch.sakru.calibrereader.model.Book
-
-import ch.sakru.calibrereader.model.BookFile
-import ch.sakru.calibrereader.model.SavedLibrary
 import ch.sakru.calibrereader.model.StorageProvider
-import ch.sakru.calibrereader.model.LibraryViewMode
 
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -33,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ch.sakru.calibrereader.app.CalibreReaderApp
+import ch.sakru.calibrereader.model.DownloadedBook
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var app: CalibreReaderApp
@@ -114,20 +110,23 @@ class MainActivity : ComponentActivity() {
 
                             onViewModeChange = { mode ->
 
-                                calibreViewModel.setLibraryViewMode(
-                                    mode
-                                )
-
-                                changeViewMode(
-                                    mode
+                                calibreViewModel.changeViewMode(
+                                    mode = mode,
+                                    libraryStorage = app.libraryStorage
                                 )
                             },
-
                             onOpenBook = { book, bookFile ->
 
-                                openBook(
-                                    book,
-                                    bookFile
+                                calibreViewModel.downloadBook(
+                                    book = book,
+                                    bookFile = bookFile,
+                                    cloudStorage = app.oneDriveStorage,
+                                    onSuccess = { downloadedBook ->
+
+                                        openDownloadedBook(
+                                            downloadedBook
+                                        )
+                                    }
                                 )
                             }
                         )
@@ -182,7 +181,10 @@ class MainActivity : ComponentActivity() {
 
                             onUseLibrary = {
 
-                                saveCurrentLibrary()
+                                calibreViewModel.saveCurrentLibrary(
+                                    libraryStorage = app.libraryStorage,
+                                    provider = StorageProvider.ONEDRIVE
+                                )
 
                                 calibreViewModel.loadCalibreDatabase(
                                     cloudStorage = app.oneDriveStorage,
@@ -193,106 +195,12 @@ class MainActivity : ComponentActivity() {
                                             "metadata.db"
                                         )
                                 )
-                            }
-                        )
+                            }                        )
                     }
                 }
             }
         }
     }
-
-     /**
-     * Saves the currently selected Calibre library.
-     *
-     * The library is stored persistently so that it can be restored
-     * when the application is started again.
-     */
-    private fun saveCurrentLibrary() {
-
-        val folderId =
-            calibreViewModel
-                .sessionState
-                .value
-                .selectedLibraryRootId
-                ?: return
-
-        val libraryName =
-            calibreViewModel.uiState.value.currentPath
-                .lastOrNull()
-                ?: "Calibre Library"
-
-        val library =
-            SavedLibrary(
-                id = folderId,
-                name = libraryName,
-                storageRootId = folderId,
-                account = calibreViewModel.uiState.value.userName,
-                provider = StorageProvider.ONEDRIVE
-            )
-
-        val newLibraries =
-            calibreViewModel.uiState.value.savedLibraries
-                .filterNot {
-                    it.storageRootId == folderId &&
-                            it.provider == StorageProvider.ONEDRIVE
-                } + library
-
-        calibreViewModel.setSavedLibraries(
-            newLibraries
-        )
-
-        lifecycleScope.launch {
-
-            try {
-
-                app.libraryStorage.saveLibraries(
-                    newLibraries
-                )
-
-                android.util.Log.d(
-                    "CalibreReader",
-                    "Library saved: ${library.name}"
-                )
-
-            } catch (e: Exception) {
-
-                android.util.Log.e(
-                    "CalibreReader",
-                    "Failed to save library",
-                    e
-                )
-
-                calibreViewModel.setError(
-                    e.message ?: e.javaClass.simpleName
-                )
-            }
-        }
-    }
-    /**
-     * Persists the selected library view mode.
-     */
-    private fun changeViewMode(
-        mode: LibraryViewMode
-    ) {
-
-        lifecycleScope.launch {
-
-            try {
-
-                app.libraryStorage.saveViewMode(
-                    mode
-                )
-
-            } catch (e: Exception) {
-
-                calibreViewModel.setError(
-                    e.message
-                        ?: e.javaClass.simpleName
-                )
-            }
-        }
-    }
-
 
     private fun checkExistingLogin() {
 
@@ -339,132 +247,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-    }
-    private fun openBook(
-        book: Book,
-        bookFile: BookFile
-    ) {
-
-        android.util.Log.d(
-            "CalibreReader",
-            "openBook gestartet: ${book.title}"
-        )
-
-        android.util.Log.d(
-            "CalibreReader",
-            "Datei aus metadata.db: ${bookFile.name} / ${bookFile.format}"
-        )
-
-        val rootFolderId =
-            calibreViewModel
-                .sessionState
-                .value
-                .selectedLibraryRootId
-
-        if (rootFolderId == null) {
-
-            android.util.Log.e(
-                "CalibreReader",
-                "selectedLibraryRootId ist NULL"
-            )
-
-            calibreViewModel.setError(
-                "Calibre-Stammverzeichnis nicht gesetzt."
-            )
-
-            return
-        }
-
-        calibreViewModel.setLoading(true)
-        calibreViewModel.clearError()
-
-        lifecycleScope.launch {
-
-            try {
-
-                val extension =
-                    bookFile.format.lowercase()
-
-                val relativePath =
-                    "${book.path}/${bookFile.name}.$extension"
-
-                android.util.Log.d(
-                    "CalibreReader",
-                    "Cloud book path: $relativePath"
-                )
-
-                val bytes =
-                    app.oneDriveStorage.downloadFileByPath(
-                        rootId = rootFolderId,
-                        relativePath = relativePath
-                    )
-
-                android.util.Log.d(
-                    "CalibreReader",
-                    "Buch heruntergeladen: ${bytes.size} Bytes"
-                )
-
-                val localFile =
-                    withContext(Dispatchers.IO) {
-
-                        val booksDirectory =
-                            File(
-                                filesDir,
-                                "books"
-                            )
-
-                        booksDirectory.mkdirs()
-
-                        val file =
-                            File(
-                                booksDirectory,
-                                "${book.id}.$extension"
-                            )
-
-                        file.writeBytes(
-                            bytes
-                        )
-
-                        file
-                    }
-
-                android.util.Log.d(
-                    "CalibreReader",
-                    "Lokale Datei: ${localFile.absolutePath}"
-                )
-
-                android.util.Log.d(
-                    "CalibreReader",
-                    "Lokale Dateigrösse: ${localFile.length()} Bytes"
-                )
-
-                calibreViewModel.setLoading(
-                    false
-                )
-
-                openLocalBook(
-                    localFile,
-                    extension
-                )
-
-            } catch (e: Exception) {
-
-                android.util.Log.e(
-                    "CalibreReader",
-                    "Fehler beim Öffnen des Buches",
-                    e
-                )
-
-                calibreViewModel.setError(
-                    e.message
-                        ?: e.javaClass.simpleName
-                )
-
-                calibreViewModel.setLoading(
-                    false
-                )
-            }
-        }
     }
     private fun openLocalBook(
         file: File,
@@ -588,6 +370,51 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
+    }
+    private fun openDownloadedBook(
+        downloadedBook: DownloadedBook
+    ) {
+        lifecycleScope.launch {
+
+            try {
+
+                val localFile =
+                    withContext(Dispatchers.IO) {
+
+                        val booksDirectory =
+                            File(
+                                filesDir,
+                                "books"
+                            )
+
+                        booksDirectory.mkdirs()
+
+                        val file =
+                            File(
+                                booksDirectory,
+                                "${downloadedBook.bookId}.${downloadedBook.extension}"
+                            )
+
+                        file.writeBytes(
+                            downloadedBook.bytes
+                        )
+
+                        file
+                    }
+
+                openLocalBook(
+                    file = localFile,
+                    extension = downloadedBook.extension
+                )
+
+            } catch (e: Exception) {
+
+                calibreViewModel.setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+            }
+        }
     }
 
 }

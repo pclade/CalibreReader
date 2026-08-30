@@ -15,6 +15,10 @@ import ch.sakru.calibrereader.calibre.CalibreRepository
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ch.sakru.calibrereader.calibre.LibraryStorage
+import ch.sakru.calibrereader.model.StorageProvider
+import ch.sakru.calibrereader.model.BookFile
+import ch.sakru.calibrereader.model.DownloadedBook
 /**
  * Coordinates application state and user actions for CalibreReader.
  *
@@ -531,6 +535,141 @@ class CalibreViewModel : ViewModel() {
 
                 setLoading(
                     false
+                )
+
+            } catch (e: Exception) {
+
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                setLoading(
+                    false
+                )
+            }
+        }
+    }
+
+    fun saveCurrentLibrary(
+        libraryStorage: LibraryStorage,
+        provider: StorageProvider
+    ) {
+        val folderId =
+            sessionState
+                .value
+                .selectedLibraryRootId
+                ?: return
+
+        val libraryName =
+            uiState
+                .value
+                .currentPath
+                .lastOrNull()
+                ?: "Calibre Library"
+
+        val library =
+            SavedLibrary(
+                id = folderId,
+                name = libraryName,
+                storageRootId = folderId,
+                account = uiState.value.userName,
+                provider = provider
+            )
+
+        val newLibraries =
+            uiState
+                .value
+                .savedLibraries
+                .filterNot {
+                    it.storageRootId == folderId &&
+                            it.provider == provider
+                } + library
+
+        setSavedLibraries(
+            newLibraries
+        )
+
+        viewModelScope.launch {
+            try {
+                libraryStorage.saveLibraries(
+                    newLibraries
+                )
+            } catch (e: Exception) {
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+            }
+        }
+    }
+    fun changeViewMode(
+        mode: LibraryViewMode,
+        libraryStorage: LibraryStorage
+    ) {
+        setLibraryViewMode(
+            mode
+        )
+
+        viewModelScope.launch {
+            try {
+                libraryStorage.saveViewMode(
+                    mode
+                )
+            } catch (e: Exception) {
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+            }
+        }
+    }
+    fun downloadBook(
+        book: Book,
+        bookFile: BookFile,
+        cloudStorage: CloudStorage,
+        onSuccess: (DownloadedBook) -> Unit
+    ) {
+        val rootFolderId =
+            sessionState
+                .value
+                .selectedLibraryRootId
+
+        if (rootFolderId == null) {
+            setError(
+                "Calibre-Stammverzeichnis nicht gesetzt."
+            )
+
+            return
+        }
+
+        setLoading(true)
+        clearError()
+
+        viewModelScope.launch {
+            try {
+                val extension =
+                    bookFile.format.lowercase()
+
+                val relativePath =
+                    "${book.path}/${bookFile.name}.$extension"
+
+                val bytes =
+                    cloudStorage.downloadFileByPath(
+                        rootId = rootFolderId,
+                        relativePath = relativePath
+                    )
+
+                setLoading(
+                    false
+                )
+
+                onSuccess(
+                    DownloadedBook(
+                        bookId = book.id,
+                        extension = extension,
+                        bytes = bytes
+                    )
                 )
 
             } catch (e: Exception) {
