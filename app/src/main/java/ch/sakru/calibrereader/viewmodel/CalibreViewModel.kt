@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.SavedLibrary
 import ch.sakru.calibrereader.storage.CloudItem
+import androidx.lifecycle.viewModelScope
+import ch.sakru.calibrereader.storage.CloudStorage
+import kotlinx.coroutines.launch
 
 /**
  * Coordinates application state and user actions for CalibreReader.
@@ -214,6 +217,42 @@ class CalibreViewModel : ViewModel() {
             _sessionState.value.copy(
                 metadataDbItemId = itemId
             )
+    }
+    fun loadRootFolder(
+        cloudStorage: CloudStorage
+    ) {
+        setLoading(true)
+        clearError()
+
+        viewModelScope.launch {
+            try {
+                val items =
+                    cloudStorage.listChildren()
+
+                setCurrentItems(
+                    items
+                )
+
+                setCurrentPath(
+                    listOf("OneDrive")
+                )
+
+                setLoading(
+                    false
+                )
+
+            } catch (e: Exception) {
+
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                setLoading(
+                    false
+                )
+            }
+        }
     }
 
 }

@@ -10,25 +10,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
 import java.io.File
 import ch.sakru.calibrereader.auth.MicrosoftAuthManager
-import ch.sakru.calibrereader.onedrive.GraphClient
 import ch.sakru.calibrereader.model.Book
-import ch.sakru.calibrereader.calibre.CoverRepository
 
 import ch.sakru.calibrereader.model.BookFile
 import ch.sakru.calibrereader.model.SavedLibrary
 import ch.sakru.calibrereader.model.StorageProvider
-import ch.sakru.calibrereader.calibre.LibraryStorage
 import ch.sakru.calibrereader.model.LibraryViewMode
 
 import androidx.lifecycle.lifecycleScope
 import ch.sakru.calibrereader.storage.CloudItem
-import ch.sakru.calibrereader.storage.onedrive.OneDriveStorage
 import kotlinx.coroutines.launch
 import ch.sakru.calibrereader.ui.storage.onedrive.OneDriveScreen
 import ch.sakru.calibrereader.ui.login.LoginScreen
@@ -37,36 +31,26 @@ import ch.sakru.calibrereader.ui.library.LibraryScreen
 import androidx.activity.viewModels
 import ch.sakru.calibrereader.viewmodel.CalibreViewModel
 import androidx.compose.runtime.collectAsState
-import ch.sakru.calibrereader.auth.AuthSession
-import ch.sakru.calibrereader.calibre.CalibreRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
+import ch.sakru.calibrereader.app.CalibreReaderApp
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
-    private lateinit var libraryStorage: LibraryStorage
-    private val authSession = AuthSession()
-    private lateinit var coverRepository: CoverRepository
+    private lateinit var app: CalibreReaderApp
     private lateinit var authManager: MicrosoftAuthManager
-    private lateinit var oneDriveStorage: OneDriveStorage
-
-    private val calibreRepository = CalibreRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        libraryStorage =
-            LibraryStorage(applicationContext)
-
+        app = CalibreReaderApp(applicationContext)
         lifecycleScope.launch {
 
             try {
 
                 val libraries =
-                    libraryStorage.loadLibraries()
+                    app.libraryStorage.loadLibraries()
 
                 val viewMode =
-                    libraryStorage.loadViewMode()
+                    app.libraryStorage.loadViewMode()
 
                 calibreViewModel.setSavedLibraries(
                     libraries
@@ -105,13 +89,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-        oneDriveStorage = OneDriveStorage(
-            graphClient = GraphClient(),
-            accessTokenProvider = {
-                authSession.accessToken
-            }
-        )
-        coverRepository = CoverRepository(cloudStorage = oneDriveStorage)
         setContent {
             val uiState by
             calibreViewModel.uiState.collectAsState()
@@ -133,7 +110,7 @@ class MainActivity : ComponentActivity() {
                             books = uiState.books,
                             rootFolderId =
                                 sessionState.selectedLibraryRootId,
-                            coverRepository = coverRepository,
+                            coverRepository = app.coverRepository,
                             viewMode = uiState.libraryViewMode,
 
                             onViewModeChange = { mode ->
@@ -174,7 +151,9 @@ class MainActivity : ComponentActivity() {
                                     false
                                 )
 
-                                loadRootFolder()
+                                calibreViewModel.loadRootFolder(
+                                    app.oneDriveStorage
+                                )
                             }
                         )
 
@@ -207,7 +186,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
+    /**
+     * Loads a previously saved Calibre library.
+     *
+     * The method locates the library's metadata.db file in cloud storage
+     * and starts loading the Calibre metadata.
+     *
+     * @param library saved library to load.
+     */
     private fun loadSavedLibrary(
         library: SavedLibrary
     ) {
@@ -219,7 +205,7 @@ class MainActivity : ComponentActivity() {
             try {
 
                 val children =
-                    oneDriveStorage.listChildren(
+                    app.oneDriveStorage.listChildren(
                         library.storageRootId
                     )
 
@@ -263,27 +249,9 @@ class MainActivity : ComponentActivity() {
                 calibreViewModel.setLoading(false)
             }
         }
-    }    /**
-     * Loads the root folder of the currently authenticated cloud storage.
-     */
-    private fun loadRootFolder() {
-        calibreViewModel.setLoading(true)
-        calibreViewModel.clearError()
-        lifecycleScope.launch {
-            try {
-                val items = oneDriveStorage.listChildren()
-                calibreViewModel.setCurrentItems(items)
-                calibreViewModel.setCurrentPath(listOf("OneDrive"))
-                calibreViewModel.setLoading(false)
-            } catch (e: Exception) {
-                calibreViewModel.setError(
-                    e.message ?: e.javaClass.simpleName
-                )
-                calibreViewModel.setLoading(false)
-            }
-        }
     }
-    /**
+
+     /**
      * Saves the currently selected Calibre library.
      *
      * The library is stored persistently so that it can be restored
@@ -327,7 +295,7 @@ class MainActivity : ComponentActivity() {
 
             try {
 
-                libraryStorage.saveLibraries(
+                app.libraryStorage.saveLibraries(
                     newLibraries
                 )
 
@@ -361,7 +329,7 @@ class MainActivity : ComponentActivity() {
 
             try {
 
-                libraryStorage.saveViewMode(
+                app.libraryStorage.saveViewMode(
                     mode
                 )
 
@@ -373,7 +341,10 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }    private fun checkExistingLogin() {
+    }
+
+
+    private fun checkExistingLogin() {
 
         authManager.getCurrentAccount(
 
@@ -391,12 +362,14 @@ class MainActivity : ComponentActivity() {
                     account = account,
 
                     onSuccess = { result ->
-                        authSession.updateAccessToken(
+                        app.authSession.updateAccessToken(
                             result.accessToken
                         )
                         calibreViewModel.setUserName(result.account.username)
                         calibreViewModel.setLoggedIn(true)
-                        loadRootFolder()
+                        calibreViewModel.loadRootFolder(
+                            app.oneDriveStorage
+                        )
                     },
                     onError = {
                         runOnUiThread {
@@ -423,12 +396,6 @@ class MainActivity : ComponentActivity() {
      *
      * @param item folder to open.
      */
-    /**
-     * Opens a cloud folder and checks whether it represents
-     * the root of a Calibre library.
-     *
-     * @param item folder to open.
-     */
     private fun openFolder(
         item: CloudItem
     ) {
@@ -441,7 +408,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val children =
-                    oneDriveStorage.listChildren(
+                    app.oneDriveStorage.listChildren(
                         item.id
                     )
 
@@ -470,6 +437,9 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    /**
+     * Downloads and loads the metadata database of the active Calibre library.
+     */
     private fun loadCalibreDatabase() {
         val itemId = calibreViewModel.sessionState.value.metadataDbItemId?: return
         calibreViewModel.setLoading(true)
@@ -478,7 +448,7 @@ class MainActivity : ComponentActivity() {
             try {
 
                 val data =
-                    oneDriveStorage.downloadFile(
+                    app.oneDriveStorage.downloadFile(
                         itemId
                     )
 
@@ -494,7 +464,7 @@ class MainActivity : ComponentActivity() {
 
                 val loadedBooks =
                     withContext(Dispatchers.IO) {
-                        calibreRepository.loadBooks(
+                        app.calibreRepository.loadBooks(
                             dbFile
                         )
                     }
@@ -589,7 +559,7 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val bytes =
-                    oneDriveStorage.downloadFileByPath(
+                    app.oneDriveStorage.downloadFileByPath(
                         rootId = rootFolderId,
                         relativePath = relativePath
                     )
@@ -748,12 +718,14 @@ class MainActivity : ComponentActivity() {
             activity = this,
 
             onSuccess = { result ->
-                authSession.updateAccessToken(
+                app.authSession.updateAccessToken(
                     result.accessToken
                 )
                 calibreViewModel.setUserName(result.account.username)
                 calibreViewModel.setLoggedIn(true)
-                loadRootFolder()
+                calibreViewModel.loadRootFolder(
+                    app.oneDriveStorage
+                )
             },
 
             onError = { error ->
