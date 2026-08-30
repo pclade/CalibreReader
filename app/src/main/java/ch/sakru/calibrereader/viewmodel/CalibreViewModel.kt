@@ -255,4 +255,75 @@ class CalibreViewModel : ViewModel() {
         }
     }
 
+    fun openFolder(
+        item: CloudItem,
+        cloudStorage: CloudStorage
+    ) {
+        if (!item.isFolder) {
+            return
+        }
+
+        setLoading(true)
+        clearError()
+        setCalibreLibraryFound(false)
+
+        viewModelScope.launch {
+            try {
+                val children =
+                    cloudStorage.listChildren(
+                        item.id
+                    )
+
+                val metadataItem =
+                    children.firstOrNull {
+                        it.name.equals(
+                            "metadata.db",
+                            ignoreCase = true
+                        )
+                    }
+
+                setCurrentItems(
+                    children
+                )
+
+                val currentPath =
+                    uiState.value.currentPath
+
+                setCurrentPath(
+                    currentPath + item.name
+                )
+
+                if (metadataItem != null) {
+
+                    setCalibreLibraryFound(
+                        true
+                    )
+
+                    setSelectedLibraryRootId(
+                        item.id
+                    )
+
+                    setMetadataDbItemId(
+                        metadataItem.id
+                    )
+                }
+
+                setLoading(
+                    false
+                )
+
+            } catch (e: Exception) {
+
+                setError(
+                    e.message
+                        ?: e.javaClass.simpleName
+                )
+
+                setLoading(
+                    false
+                )
+            }
+        }
+    }
+
 }

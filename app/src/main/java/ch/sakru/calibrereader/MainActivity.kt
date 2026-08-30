@@ -22,7 +22,6 @@ import ch.sakru.calibrereader.model.StorageProvider
 import ch.sakru.calibrereader.model.LibraryViewMode
 
 import androidx.lifecycle.lifecycleScope
-import ch.sakru.calibrereader.storage.CloudItem
 import kotlinx.coroutines.launch
 import ch.sakru.calibrereader.ui.storage.onedrive.OneDriveScreen
 import ch.sakru.calibrereader.ui.login.LoginScreen
@@ -169,8 +168,9 @@ class MainActivity : ComponentActivity() {
 
                             onFolderClick = { item ->
 
-                                openFolder(
-                                    item
+                                calibreViewModel.openFolder(
+                                    item = item,
+                                    cloudStorage = app.oneDriveStorage
                                 )
                             },
 
@@ -389,53 +389,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-    }
-    /**
-     * Opens a cloud folder and checks whether it represents
-     * the root of a Calibre library.
-     *
-     * @param item folder to open.
-     */
-    private fun openFolder(
-        item: CloudItem
-    ) {
-        if (!item.isFolder) {
-            return
-        }
-        calibreViewModel.setLoading(true)
-        calibreViewModel.clearError()
-        calibreViewModel.setCalibreLibraryFound(false)
-        lifecycleScope.launch {
-            try {
-                val children =
-                    app.oneDriveStorage.listChildren(
-                        item.id
-                    )
-
-                val metadataItem =
-                    children.firstOrNull {
-                        it.name.equals(
-                            "metadata.db",
-                            ignoreCase = true
-                        )
-                    }
-                calibreViewModel.setCurrentItems(children)
-                calibreViewModel.setCurrentPath(calibreViewModel.uiState.value.currentPath + item.name)
-                if (metadataItem != null) {
-                    calibreViewModel.setCalibreLibraryFound(true)
-                    calibreViewModel.setSelectedLibraryRootId(item.id)
-                    calibreViewModel.setMetadataDbItemId(metadataItem.id)
-                }
-                calibreViewModel.setLoading(false)
-
-            } catch (e: Exception) {
-                calibreViewModel.setError(
-                    e.message ?: e.javaClass.simpleName
-                )
-
-                calibreViewModel.setLoading(false)
-            }
-        }
     }
     /**
      * Downloads and loads the metadata database of the active Calibre library.
