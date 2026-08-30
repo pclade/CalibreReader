@@ -44,9 +44,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var libraryStorage: LibraryStorage
-    private var metadataDbItemId by mutableStateOf<String?>(null)
     private var accessToken by mutableStateOf("")
-    private var selectedCalibreFolderId by   mutableStateOf<String?>(null)
     private lateinit var coverRepository: CoverRepository
     private lateinit var authManager: MicrosoftAuthManager
     private lateinit var oneDriveStorage: OneDriveStorage
@@ -111,6 +109,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val uiState by
             calibreViewModel.uiState.collectAsState()
+            val sessionState by
+            calibreViewModel.sessionState.collectAsState()
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize()
@@ -125,7 +125,8 @@ class MainActivity : ComponentActivity() {
                     } else if (uiState.libraryLoaded) {
                         LibraryScreen(
                             books = uiState.books,
-                            rootFolderId = selectedCalibreFolderId,
+                            rootFolderId =
+                                sessionState.selectedLibraryRootId,
                             coverRepository = coverRepository,
                             viewMode = uiState.libraryViewMode,
 
@@ -155,9 +156,6 @@ class MainActivity : ComponentActivity() {
                             libraries = uiState.savedLibraries,
 
                             onLibraryClick = { library ->
-
-                                selectedCalibreFolderId =
-                                    library.storageRootId
 
                                 loadSavedLibrary(
                                     library
@@ -207,13 +205,9 @@ class MainActivity : ComponentActivity() {
     private fun loadSavedLibrary(
         library: SavedLibrary
     ) {
-
-        selectedCalibreFolderId =
-            library.storageRootId
-
+        calibreViewModel.setSelectedLibraryRootId(library.storageRootId)
         calibreViewModel.setLoading(true)
         calibreViewModel.clearError()
-
         lifecycleScope.launch {
 
             try {
@@ -242,8 +236,7 @@ class MainActivity : ComponentActivity() {
                     return@launch
                 }
 
-                metadataDbItemId =
-                    metadataItem.id
+                calibreViewModel.setMetadataDbItemId(metadataItem.id)
 
                 calibreViewModel.setCurrentPath(
                     listOf(
@@ -293,7 +286,10 @@ class MainActivity : ComponentActivity() {
     private fun saveCurrentLibrary() {
 
         val folderId =
-            selectedCalibreFolderId
+            calibreViewModel
+                .sessionState
+                .value
+                .selectedLibraryRootId
                 ?: return
 
         val libraryName =
@@ -452,8 +448,8 @@ class MainActivity : ComponentActivity() {
                 calibreViewModel.setCurrentPath(calibreViewModel.uiState.value.currentPath + item.name)
                 if (metadataItem != null) {
                     calibreViewModel.setCalibreLibraryFound(true)
-                    selectedCalibreFolderId = item.id
-                    metadataDbItemId = metadataItem.id
+                    calibreViewModel.setSelectedLibraryRootId(item.id)
+                    calibreViewModel.setMetadataDbItemId(metadataItem.id)
                 }
                 calibreViewModel.setLoading(false)
 
@@ -467,15 +463,10 @@ class MainActivity : ComponentActivity() {
         }
     }
     private fun loadCalibreDatabase() {
-
-        val itemId =
-            metadataDbItemId ?: return
-
+        val itemId = calibreViewModel.sessionState.value.metadataDbItemId?: return
         calibreViewModel.setLoading(true)
         calibreViewModel.clearError()
-
         lifecycleScope.launch {
-
             try {
 
                 val data =
@@ -552,13 +543,16 @@ class MainActivity : ComponentActivity() {
         )
 
         val rootFolderId =
-            selectedCalibreFolderId
+            calibreViewModel
+                .sessionState
+                .value
+                .selectedLibraryRootId
 
         if (rootFolderId == null) {
 
             android.util.Log.e(
                 "CalibreReader",
-                "selectedCalibreFolderId ist NULL"
+                "selectedLibraryRootId ist NULL"
             )
 
             calibreViewModel.setError(

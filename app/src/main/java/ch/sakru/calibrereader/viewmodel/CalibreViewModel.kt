@@ -16,15 +16,16 @@ import ch.sakru.calibrereader.storage.CloudItem
  * operations outside of Compose screens.
  */
 class CalibreViewModel : ViewModel() {
+    private val _sessionState =
+        MutableStateFlow(CalibreSessionState())
 
-    private val _uiState =
-        MutableStateFlow(CalibreUiState())
+    val sessionState: StateFlow<CalibreSessionState> = _sessionState.asStateFlow()
+    private val _uiState = MutableStateFlow(CalibreUiState())
 
     /**
      * Current immutable UI state observed by Compose.
      */
-    val uiState: StateFlow<CalibreUiState> =
-        _uiState.asStateFlow()
+    val uiState: StateFlow<CalibreUiState> =_uiState.asStateFlow()
 
     /**
      * Changes the presentation mode of the Calibre library.
@@ -191,4 +192,28 @@ class CalibreViewModel : ViewModel() {
                 msalReady = ready
             )
     }
+    /**
+     * Selects the root folder of the active Calibre library.
+     */
+    fun setSelectedLibraryRootId(
+        rootId: String?
+    ) {
+        _sessionState.value =
+            _sessionState.value.copy(
+                selectedLibraryRootId = rootId
+            )
+    }
+
+    /**
+     * Stores the cloud item identifier of the active metadata.db file.
+     */
+    fun setMetadataDbItemId(
+        itemId: String?
+    ) {
+        _sessionState.value =
+            _sessionState.value.copy(
+                metadataDbItemId = itemId
+            )
+    }
+
 }
