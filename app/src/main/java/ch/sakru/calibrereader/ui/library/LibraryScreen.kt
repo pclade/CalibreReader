@@ -19,7 +19,7 @@ import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.BookFile
 import ch.sakru.calibrereader.model.LibraryViewMode
-
+import ch.sakru.calibrereader.storage.CloudStorage
 class LibraryScreen {
 }
 /**
@@ -33,6 +33,7 @@ class LibraryScreen {
 fun LibraryScreen(
     books: List<Book>,
     rootFolderId: String?,
+    cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     viewMode: LibraryViewMode,
     onViewModeChange: (LibraryViewMode) -> Unit,
@@ -101,6 +102,7 @@ fun LibraryScreen(
                 LibraryList(
                     books = books,
                     rootFolderId = rootFolderId,
+                    cloudStorage = cloudStorage,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook
                 )
@@ -111,6 +113,7 @@ fun LibraryScreen(
                 LibraryGrid(
                     books = books,
                     rootFolderId = rootFolderId,
+                    cloudStorage = cloudStorage,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook
                 )

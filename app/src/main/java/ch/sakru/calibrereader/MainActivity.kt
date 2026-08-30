@@ -107,10 +107,20 @@ class MainActivity : ComponentActivity() {
                             onLogin = ::startLogin
                         )
                     } else if (uiState.libraryLoaded) {
+
+                        val activeCloudStorage =
+                            sessionState.activeProvider?.let { provider ->
+                                app.storageFactory.getStorage(
+                                    provider
+                                )
+                            }
+
                         LibraryScreen(
                             books = uiState.books,
                             rootFolderId =
                                 sessionState.selectedLibraryRootId,
+                            cloudStorage =
+                                activeCloudStorage,
                             coverRepository = app.coverRepository,
                             viewMode = uiState.libraryViewMode,
 
@@ -156,9 +166,14 @@ class MainActivity : ComponentActivity() {
 
                             onLibraryClick = { library ->
 
+                                val cloudStorage =
+                                    app.storageFactory.getStorage(
+                                        library.provider
+                                    )
+
                                 calibreViewModel.loadSavedLibraryAndBooks(
                                     library = library,
-                                    cloudStorage = app.oneDriveStorage,
+                                    cloudStorage = cloudStorage,
                                     calibreRepository = app.calibreRepository,
                                     databaseFile =
                                         File(
@@ -173,10 +188,14 @@ class MainActivity : ComponentActivity() {
                                     false
                                 )
 
-                                calibreViewModel.loadRootFolder(
-                                    app.oneDriveStorage
+                                calibreViewModel.setActiveProvider(
+                                    StorageProvider.ONEDRIVE
                                 )
-                            }
+
+                                calibreViewModel.loadRootFolder(
+                                    cloudStorage = app.oneDriveStorage,
+                                    provider = StorageProvider.ONEDRIVE
+                                )                            }
                         )
 
                     } else {
@@ -200,10 +219,8 @@ class MainActivity : ComponentActivity() {
                             onUseLibrary = {
 
                                 calibreViewModel.saveCurrentLibrary(
-                                    libraryStorage = app.libraryStorage,
-                                    provider = StorageProvider.ONEDRIVE
+                                    libraryStorage = app.libraryStorage
                                 )
-
                                 calibreViewModel.loadCalibreDatabase(
                                     cloudStorage = app.oneDriveStorage,
                                     calibreRepository = app.calibreRepository,
@@ -237,9 +254,9 @@ class MainActivity : ComponentActivity() {
                     )
 
                     calibreViewModel.loadRootFolder(
-                        app.oneDriveStorage
-                    )
-                }
+                        cloudStorage = app.oneDriveStorage,
+                        provider = StorageProvider.ONEDRIVE
+                    )                }
             },
 
             onNoAccount = {
@@ -293,7 +310,8 @@ class MainActivity : ComponentActivity() {
                     )
 
                     calibreViewModel.loadRootFolder(
-                        app.oneDriveStorage
+                        cloudStorage = app.oneDriveStorage,
+                        provider = StorageProvider.ONEDRIVE
                     )
                 }
             },

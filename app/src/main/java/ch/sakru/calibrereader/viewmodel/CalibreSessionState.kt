@@ -1,5 +1,7 @@
 package ch.sakru.calibrereader.viewmodel
 
+import ch.sakru.calibrereader.model.StorageProvider
+
 /**
  * Represents technical state of the currently selected Calibre library.
  *
@@ -7,5 +9,6 @@ package ch.sakru.calibrereader.viewmodel
  */
 data class CalibreSessionState(
     val selectedLibraryRootId: String? = null,
-    val metadataDbItemId: String? = null
+    val metadataDbItemId: String? = null,
+    val activeProvider: StorageProvider? = null
 )

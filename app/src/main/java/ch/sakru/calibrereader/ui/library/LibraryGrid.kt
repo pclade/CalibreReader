@@ -8,7 +8,7 @@ import androidx.compose.ui.unit.dp
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.BookFile
-
+import ch.sakru.calibrereader.storage.CloudStorage
 /**
  * Displays the books of a Calibre library in an adaptive cover grid.
  */
@@ -16,6 +16,7 @@ import ch.sakru.calibrereader.model.BookFile
 fun LibraryGrid(
     books: List<Book>,
     rootFolderId: String?,
+    cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
 ) {
@@ -34,6 +35,7 @@ fun LibraryGrid(
             BookGridItem(
                 book = book,
                 rootFolderId = rootFolderId,
+                cloudStorage = cloudStorage,
                 coverRepository = coverRepository,
                 onOpenBook = onOpenBook
             )

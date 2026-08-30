@@ -8,6 +8,8 @@ import ch.sakru.calibrereader.calibre.LibraryStorage
 import ch.sakru.calibrereader.onedrive.GraphClient
 import ch.sakru.calibrereader.storage.onedrive.OneDriveStorage
 import ch.sakru.calibrereader.platform.BookOpener
+import ch.sakru.calibrereader.model.StorageProvider
+import ch.sakru.calibrereader.storage.StorageFactory
 
 /**
  * Application composition root.
@@ -53,14 +55,19 @@ class CalibreReaderApp(
                 authSession.accessToken
             }
         )
+    val storageFactory =
+        StorageFactory(
+            storages =
+                mapOf(
+                    StorageProvider.ONEDRIVE to oneDriveStorage
+                )
+        )
 
     /**
      * Provider-neutral book cover repository.
      */
     val coverRepository =
-        CoverRepository(
-            cloudStorage = oneDriveStorage
-        )
+        CoverRepository()
 
     val bookOpener =
         BookOpener(

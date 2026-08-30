@@ -226,7 +226,8 @@ class CalibreViewModel : ViewModel() {
             )
     }
     fun loadRootFolder(
-        cloudStorage: CloudStorage
+        cloudStorage: CloudStorage,
+        provider: StorageProvider
     ) {
         setLoading(true)
         clearError()
@@ -241,7 +242,9 @@ class CalibreViewModel : ViewModel() {
                 )
 
                 setCurrentPath(
-                    listOf("OneDrive")
+                    listOf(
+                        provider.displayName
+                    )
                 )
 
                 setLoading(
@@ -337,6 +340,10 @@ class CalibreViewModel : ViewModel() {
         library: SavedLibrary,
         cloudStorage: CloudStorage
     ) {
+        setActiveProvider(
+            library.provider
+        )
+
         setSelectedLibraryRootId(
             library.storageRootId
         )
@@ -462,6 +469,10 @@ class CalibreViewModel : ViewModel() {
         calibreRepository: CalibreRepository,
         databaseFile: File
     ) {
+        setActiveProvider(
+            library.provider
+        )
+
         setSelectedLibraryRootId(
             library.storageRootId
         )
@@ -502,7 +513,7 @@ class CalibreViewModel : ViewModel() {
 
                 setCurrentPath(
                     listOf(
-                        "OneDrive",
+                        library.provider.displayName,
                         library.name
                     )
                 )
@@ -552,19 +563,21 @@ class CalibreViewModel : ViewModel() {
     }
 
     fun saveCurrentLibrary(
-        libraryStorage: LibraryStorage,
-        provider: StorageProvider
+        libraryStorage: LibraryStorage
     ) {
+        val session =
+            sessionState.value
+
         val folderId =
-            sessionState
-                .value
-                .selectedLibraryRootId
+            session.selectedLibraryRootId
+                ?: return
+
+        val provider =
+            session.activeProvider
                 ?: return
 
         val libraryName =
-            uiState
-                .value
-                .currentPath
+            uiState.value.currentPath
                 .lastOrNull()
                 ?: "Calibre Library"
 
@@ -578,9 +591,7 @@ class CalibreViewModel : ViewModel() {
             )
 
         val newLibraries =
-            uiState
-                .value
-                .savedLibraries
+            uiState.value.savedLibraries
                 .filterNot {
                     it.storageRootId == folderId &&
                             it.provider == provider
@@ -602,8 +613,7 @@ class CalibreViewModel : ViewModel() {
                 )
             }
         }
-    }
-    fun changeViewMode(
+    }    fun changeViewMode(
         mode: LibraryViewMode,
         libraryStorage: LibraryStorage
     ) {
@@ -685,5 +695,12 @@ class CalibreViewModel : ViewModel() {
             }
         }
     }
-
+    fun setActiveProvider(
+        provider: StorageProvider?
+    ) {
+        _sessionState.value =
+            _sessionState.value.copy(
+                activeProvider = provider
+            )
+    }
 }

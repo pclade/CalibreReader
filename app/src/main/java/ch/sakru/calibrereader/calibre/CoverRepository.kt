@@ -5,45 +5,32 @@ import ch.sakru.calibrereader.storage.CloudStorage
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Loads and caches raw book cover data from cloud storage.
- *
- * The repository is independent of a specific cloud provider and does not
- * depend on Android-specific image classes.
- *
- * @property cloudStorage cloud storage implementation used to load cover files.
+ * Loads and caches Calibre book covers.
  */
-class CoverRepository(
-    private val cloudStorage: CloudStorage
-) {
+class CoverRepository {
 
     private val memoryCache =
         ConcurrentHashMap<Long, ByteArray>()
 
     /**
-     * Returns cached cover data if available.
-     *
-     * @param bookId Calibre book identifier.
-     * @return raw image data or null if the cover has not been loaded yet.
+     * Returns a cached cover if available.
      */
     fun getCachedCover(
         bookId: Long
-    ): ByteArray? {
-        return memoryCache[bookId]
-    }
+    ): ByteArray? =
+        memoryCache[bookId]
 
     /**
-     * Loads the cover image of a book.
-     *
-     * The expected Calibre cover location is:
-     * `<book path>/cover.jpg`.
+     * Loads a cover from the selected cloud storage.
      *
      * @param book book whose cover should be loaded.
-     * @param rootFolderId cloud storage ID of the Calibre library root.
-     * @return raw JPEG image data or null if no cover could be loaded.
+     * @param rootFolderId root folder of the active Calibre library.
+     * @param cloudStorage active cloud storage implementation.
      */
     suspend fun loadCover(
         book: Book,
-        rootFolderId: String
+        rootFolderId: String,
+        cloudStorage: CloudStorage
     ): ByteArray? {
 
         memoryCache[book.id]?.let {
@@ -70,7 +57,7 @@ class CoverRepository(
 
             android.util.Log.e(
                 "CalibreReader",
-                "Cover nicht geladen: ${book.title}",
+                "Cover not loaded: ${book.title}",
                 e
             )
 

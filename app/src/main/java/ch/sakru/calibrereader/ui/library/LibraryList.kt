@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.BookFile
-
+import ch.sakru.calibrereader.storage.CloudStorage
 /**
  * Displays the books of a Calibre library as a vertical list.
  */
@@ -15,6 +15,7 @@ import ch.sakru.calibrereader.model.BookFile
 fun LibraryList(
     books: List<Book>,
     rootFolderId: String?,
+    cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
 ) {
@@ -29,6 +30,7 @@ fun LibraryList(
             BookRow(
                 book = book,
                 rootFolderId = rootFolderId,
+                cloudStorage = cloudStorage,
                 coverRepository = coverRepository,
                 onOpenBook = onOpenBook
             )
