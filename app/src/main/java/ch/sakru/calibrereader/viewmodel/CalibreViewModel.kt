@@ -19,6 +19,7 @@ import ch.sakru.calibrereader.calibre.LibraryStorage
 import ch.sakru.calibrereader.model.StorageProvider
 import ch.sakru.calibrereader.model.BookFile
 import ch.sakru.calibrereader.model.DownloadedBook
+import ch.sakru.calibrereader.model.LibrarySortMode
 /**
  * Coordinates application state and user actions for CalibreReader.
  *
@@ -37,6 +38,60 @@ class CalibreViewModel : ViewModel() {
      */
     val uiState: StateFlow<CalibreUiState> =_uiState.asStateFlow()
 
+    /**
+     * Books matching the current search query and sort order.
+     */
+    val filteredBooks: List<Book>
+        get() {
+            val state =
+                uiState.value
+
+            val query =
+                state.searchQuery.trim()
+
+            val filtered =
+                if (query.isBlank()) {
+
+                    state.books
+
+                } else {
+
+                    state.books.filter { book ->
+
+                        book.title.contains(
+                            query,
+                            ignoreCase = true
+                        ) ||
+                                book.authors.contains(
+                                    query,
+                                    ignoreCase = true
+                                )
+                    }
+                }
+
+            return when (state.sortMode) {
+
+                LibrarySortMode.TITLE_ASC ->
+                    filtered.sortedBy {
+                        it.title.lowercase()
+                    }
+
+                LibrarySortMode.TITLE_DESC ->
+                    filtered.sortedByDescending {
+                        it.title.lowercase()
+                    }
+
+                LibrarySortMode.AUTHOR_ASC ->
+                    filtered.sortedBy {
+                        it.authors.lowercase()
+                    }
+
+                LibrarySortMode.AUTHOR_DESC ->
+                    filtered.sortedByDescending {
+                        it.authors.lowercase()
+                    }
+            }
+        }
     /**
      * Changes the presentation mode of the Calibre library.
      *
@@ -634,6 +689,28 @@ class CalibreViewModel : ViewModel() {
         _sessionState.value =
             _sessionState.value.copy(
                 activeProvider = provider
+            )
+    }
+    /**
+     * Updates the current library search query.
+     */
+    fun setSearchQuery(
+        query: String
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                searchQuery = query
+            )
+    }
+    /**
+     * Updates the current library sort mode.
+     */
+    fun setSortMode(
+        sortMode: LibrarySortMode
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                sortMode = sortMode
             )
     }
 }

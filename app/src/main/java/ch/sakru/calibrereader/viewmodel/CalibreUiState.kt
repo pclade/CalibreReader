@@ -4,7 +4,7 @@ import ch.sakru.calibrereader.model.LibraryViewMode
 import ch.sakru.calibrereader.model.Book
 import ch.sakru.calibrereader.model.SavedLibrary
 import ch.sakru.calibrereader.storage.CloudItem
-
+import ch.sakru.calibrereader.model.LibrarySortMode
 /**
  * Represents the complete UI state of the CalibreReader application.
  *
@@ -13,6 +13,7 @@ import ch.sakru.calibrereader.storage.CloudItem
  */
 data class CalibreUiState(
     val libraryViewMode: LibraryViewMode = LibraryViewMode.LIST,
+    val sortMode: LibrarySortMode = LibrarySortMode.TITLE_ASC,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val books: List<Book> = emptyList(),
@@ -24,5 +25,7 @@ data class CalibreUiState(
     val showLibrarySelection: Boolean = true,
     val loggedIn: Boolean = false,
     val userName: String = "",
-    val msalReady: Boolean = false
+    val msalReady: Boolean = false,
+    val searchQuery: String = ""
+
 )

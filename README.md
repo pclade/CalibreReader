@@ -1,101 +1,92 @@
-# CalibreReader – Phase 1
+# Calibre To Go
 
-Minimaler Android-Prototyp für:
+Android-App zum lesenden Zugriff auf Calibre-Bibliotheken in OneDrive.
+Der Projekt- und Paketname lautet weiterhin `CalibreReader` beziehungsweise
+`ch.sakru.calibrereader`.
 
-1. Anmeldung mit einem Microsoft-365-Geschäfts-/Schulkonto
-2. Delegierter Nur-Lese-Zugriff via Microsoft Graph
-3. Anzeige des Root-Inhalts des OneDrive des angemeldeten Benutzers
+## Aktueller Funktionsumfang
 
-Die App schreibt **nichts** in OneDrive. Für Microsoft Graph werden nur folgende delegierte Scopes angefordert:
+- Anmeldung mit einem Microsoft-365-Geschäfts- oder Schulkonto.
+- Ordnernavigation und Erkennung einer Calibre-Bibliothek über `metadata.db`.
+- Lokal gespeicherte Bibliotheksauswahl und Listen- oder Rasteransicht.
+- Anzeige von Büchern und Covern sowie Download und Öffnen von Buchdateien.
+- Suche nach Titel oder Autor ohne Beachtung der Gross-/Kleinschreibung.
+- Sortierung nach Titel oder Autor, jeweils auf- oder absteigend.
 
-- `User.Read`
-- `Files.Read`
+Die App schreibt nichts in OneDrive. Die gemeinsame Schnittstelle `CloudStorage`
+wird für Metadaten, Cover und Buchdateien verwendet. Google Drive ist im
+Anbietermodell vorgesehen; Google Drive und Dropbox sind noch nicht implementiert.
+Die Suchanfrage und die Sortierauswahl gelten bisher nur für die laufende Sitzung.
 
-## Voraussetzungen
+## Projekt bauen
 
-- Android Studio
-- JDK 17
-- Android SDK 36
-- Eine Microsoft-Entra-App-Registration
+Voraussetzungen:
 
-## Entra-Konfiguration
+- JDK 17.
+- Android SDK Platform 36 und Build Tools 36.0.0.
+- Android Studio oder ein über `ANDROID_HOME` beziehungsweise `local.properties`
+  konfiguriertes Android SDK.
 
-Die App Registration soll für diesen Prototyp als Multi-Tenant-App konfiguriert sein:
+Der vollständige Gradle-Wrapper ist eingecheckt. Eine separate Gradle-Installation
+ist nicht erforderlich. Beim ersten Aufruf werden Gradle und die Abhängigkeiten
+heruntergeladen; die Gradle-Distribution wird anhand ihrer SHA-256-Prüfsumme geprüft.
 
-**Accounts in any organizational directory (Any Microsoft Entra ID tenant – Multitenant)**
+Windows:
 
-Unter **Authentication → Add a platform → Android**:
+```cmd
+gradlew.bat :app:assembleDebug :app:lintDebug
+```
 
-- Package name: `ch.sakru.calibrereader`
-- Development Signature Hash eintragen
-- Die von Entra angezeigte MSAL-Konfiguration kopieren
-- **Allow public client flows = Yes**
+Linux und macOS:
 
-Unter **API permissions → Microsoft Graph → Delegated permissions**:
+```sh
+./gradlew :app:assembleDebug :app:lintDebug
+```
 
-- `User.Read`
-- `Files.Read`
+Die Debug-APK liegt anschliessend unter
+`app/build/outputs/apk/debug/app-debug.apk`.
 
-## Zwei Platzhalter ersetzen
+Verwendete Build-Versionen:
 
-### 1. `app/src/main/res/raw/auth_config.json`
+| Komponente | Version |
+| --- | --- |
+| Gradle | 9.5.0 |
+| Android Gradle Plugin | 9.3.3 |
+| Kotlin und Compose-Compiler-Plugin | 2.3.20 |
+| Compose BOM | 2026.06.00 |
+| Activity Compose | 1.13.0 |
+| MSAL Android | 8.4.1 |
 
-Ersetze:
+Die Version von Material3 wird gemeinsam mit den übrigen Compose-Bibliotheken
+über die Compose BOM verwaltet.
 
-- `YOUR_CLIENT_ID`
-- `YOUR_URL_ENCODED_SIGNATURE_HASH`
+## Microsoft-Anmeldung konfigurieren
 
-Am sichersten ist es, den kompletten von Entra erzeugten `redirect_uri` zu übernehmen.
+Die verwendete Microsoft-Entra-App-Registration benötigt die Android-Plattform
+mit dem Paketnamen `ch.sakru.calibrereader` und dem Signatur-Hash des Zertifikats,
+mit dem die installierte App signiert wurde. Für den aktuellen Kontotyp ist eine
+Registrierung für Konten aus beliebigen Organisationsverzeichnissen vorgesehen.
 
-### 2. `app/src/main/AndroidManifest.xml`
+Die folgenden Dateien müssen zur App-Registration und zum verwendeten
+Signaturzertifikat passen:
 
-Ersetze:
+- `app/src/main/res/raw/auth_config.json`: Client-ID und MSAL-Redirect-URI.
+- `app/src/main/AndroidManifest.xml`: Redirect-URI für `BrowserTabActivity`.
 
-- `YOUR_SIGNATURE_HASH`
+Die von Entra angezeigte MSAL-Konfiguration ist die Grundlage. Der Signatur-Hash
+im Redirect-URI der JSON-Konfiguration ist URL-kodiert; der `android:path` im
+Manifest enthält den nicht URL-kodierten Hash mit führendem `/`.
 
-Hier muss der Signatur-Hash **nicht URL-encodiert** stehen. Der führende `/` ist bereits vorhanden.
+Für Microsoft Graph werden die delegierten Berechtigungen `User.Read` und
+`Files.Read` verwendet. Der Zugriff auf `/me/drive` erfolgt für das jeweils
+angemeldete Konto.
 
-## Gradle
+Ein erfolgreicher Build bestätigt noch keine Anmeldung: Auf einem anderen
+Entwicklungsrechner kann ein anderes Debug-Zertifikat verwendet werden. Dessen
+Hash muss ebenfalls in der Entra-Registrierung hinterlegt sein.
 
-Das Projekt verwendet:
+## Nächste Erweiterungen
 
-- Android Gradle Plugin 8.13.2
-- Kotlin 2.3.20
-- Jetpack Compose BOM 2026.06.00
-- Activity Compose 1.13.0
-- MSAL Android 8.4.1
-
-Die Datei `gradle/wrapper/gradle-wrapper.properties` ist enthalten. Die Binärdatei
-`gradle-wrapper.jar` ist aus Portabilitätsgründen nicht im ZIP enthalten. Android Studio
-kann beim Öffnen eine Gradle-Konfiguration bzw. einen Wrapper anlegen/aktualisieren.
-
-Falls du das Projekt lieber aus einem frisch erzeugten Android-Studio-Projekt startest,
-kannst du auch einfach die Ordner `app/src/main/...` sowie die Dependencies übernehmen.
-
-## Erwartetes Ergebnis
-
-Nach erfolgreichem Login:
-
-    OneDrive
-    user@firma.ch
-
-    📁 Dokumente
-    📁 778 Calibre
-    📁 Bilder
-    ...
-
-Der Graph-Aufruf lautet:
-
-    GET https://graph.microsoft.com/v1.0/me/drive/root/children
-
-`/me` bezieht sich auf den aktuell angemeldeten Benutzer, nicht auf das OneDrive des App-Entwicklers.
-
-## Nächster Schritt
-
-Phase 2:
-
-- Ordnernavigation
-- Calibre-Stammordner auswählen
-- `metadata.db` erkennen
-- `metadata.db` read-only herunterladen und lokal auswerten
-- erste Bücher mit Titel, Autor und Cover darstellen
+- Dropbox und Google Drive mit eigener Anmeldung und Anbieterauswahl.
+- Getrennte Sitzungs- und Cache-Zuordnung für mehrere Cloud-Anbieter und Bibliotheken.
+- Vorbereitung der Release-Signierung und der Veröffentlichung im Google Play Store.

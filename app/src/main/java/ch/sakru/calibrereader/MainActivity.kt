@@ -115,8 +115,26 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
+                        val filteredBooks = calibreViewModel.filteredBooks
+
                         LibraryScreen(
-                            books = uiState.books,
+                            books = filteredBooks,
+                            totalBookCount = uiState.books.size,
+                            visibleBookCount = filteredBooks.size,
+                            searchQuery = uiState.searchQuery,
+                            onSearchQueryChange = { query ->
+                                calibreViewModel.setSearchQuery(
+                                    query
+                                )
+                            },
+                            sortMode = uiState.sortMode,
+
+                            onSortModeChange = { mode ->
+
+                                calibreViewModel.setSortMode(
+                                    mode
+                                )
+                            },
                             rootFolderId =
                                 sessionState.selectedLibraryRootId,
                             cloudStorage =
