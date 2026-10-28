@@ -44,8 +44,8 @@ class GoogleDriveAuthManager(
     }
 
     suspend fun restoreSession(): AuthenticatedUser? = withContext(ioDispatcher) {
-        val attempt = beginAttempt()
-        val account = synchronized(lock) { store.read() } ?: return@withContext null
+        val (attempt, account) = beginAttempt()
+        if (account == null) return@withContext null
         val grant = authorization.authorize(account.email)
         checkCurrent(attempt)
         // Consent is launched only after an explicit interactive sign-in request.
@@ -54,8 +54,7 @@ class GoogleDriveAuthManager(
     }
 
     suspend fun startSignIn(generation: Long): AuthenticatedUser? = withContext(ioDispatcher) {
-        val attempt = beginAttempt()
-        val expected = synchronized(lock) { store.read() }
+        val (attempt, expected) = beginAttempt()
         val grant = authorization.authorize(expected?.email, chooseAccount = expected == null)
         currentCoroutineContext().ensureActive()
         synchronized(lock) {
@@ -98,8 +97,7 @@ class GoogleDriveAuthManager(
     }
 
     suspend fun signOut() = withContext(ioDispatcher) {
-        val attempt = beginAttempt()
-        val account = synchronized(lock) { store.read() }
+        val (attempt, account) = beginAttempt()
         if (account != null) authorization.revokeAccess(account.email)
         currentCoroutineContext().ensureActive()
         synchronized(lock) {
@@ -108,11 +106,12 @@ class GoogleDriveAuthManager(
         }
     }
 
-    private fun beginAttempt(): Long = synchronized(lock) {
+    private fun beginAttempt(): Pair<Long, GoogleDriveAccount?> = synchronized(lock) {
+        val account = store.read()
         revision++
         client = null
         _consent.value = null
-        revision
+        revision to account
     }
 
     private suspend fun connect(

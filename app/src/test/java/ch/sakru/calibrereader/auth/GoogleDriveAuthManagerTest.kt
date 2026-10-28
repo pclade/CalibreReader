@@ -99,6 +99,29 @@ class GoogleDriveAuthManagerTest {
             .exceptionOrNull() is CancellationException)
     }
 
+    @Test fun aLateSignOutCannotEraseANewerAccount() = runTest {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val store = MemoryAccounts(ACCOUNT_A)
+        val authorization = FakeAuthorization().apply {
+            onRevoke = { started.complete(Unit); release.await() }
+        }
+        val manager = GoogleDriveAuthManager(authorization, store,
+            factory { if (it == "access-b") ACCOUNT_B else ACCOUNT_A },
+            StandardTestDispatcher(testScheduler))
+        val old = async { runCatching { manager.signOut() } }
+        runCurrent()
+        started.await()
+        store.account = ACCOUNT_B
+        authorization.token = "access-b"
+        manager.restoreSession()
+        release.complete(Unit)
+        assertTrue(old.await().exceptionOrNull() is CancellationException)
+        assertEquals(listOf(ACCOUNT_A.email), authorization.revoked)
+        assertEquals(ACCOUNT_B, store.account)
+        assertEquals("access-b", String(manager.requireClient().download(GoogleDriveReference("book"))))
+    }
+
     @Test fun failedRevocationKeepsTheAccountHintForARetry() = runTest {
         val store = MemoryAccounts(ACCOUNT_A)
         val authorization = FakeAuthorization().apply { revokeFails = true }
@@ -121,6 +144,7 @@ class GoogleDriveAuthManagerTest {
         var token = "access-a"
         var scopes = setOf(GOOGLE_DRIVE_READONLY_SCOPE)
         var revokeFails = false
+        var onRevoke: suspend () -> Unit = {}
         val calls = mutableListOf<Pair<String?, Boolean>>()
         val revoked = mutableListOf<String>()
         override suspend fun authorize(email: String?, chooseAccount: Boolean): GoogleDriveGrant {
@@ -131,6 +155,7 @@ class GoogleDriveAuthManagerTest {
         override suspend fun revokeAccess(email: String) {
             if (revokeFails) throw IOException("fixture offline")
             revoked += email
+            onRevoke()
         }
     }
 
