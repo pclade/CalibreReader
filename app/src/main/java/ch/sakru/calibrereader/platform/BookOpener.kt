@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import ch.sakru.calibrereader.model.DownloadedBook
+import ch.sakru.calibrereader.model.LibraryIdentity
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,7 +25,8 @@ class BookOpener(
      * @param downloadedBook downloaded book content.
      */
     suspend fun open(
-        downloadedBook: DownloadedBook
+        downloadedBook: DownloadedBook,
+        libraryIdentity: LibraryIdentity
     ) {
         val localFile =
             withContext(Dispatchers.IO) {
@@ -40,8 +42,11 @@ class BookOpener(
                 val file =
                     File(
                         booksDirectory,
-                        "${downloadedBook.bookId}.${downloadedBook.extension}"
+                        downloadedBookRelativePath(libraryIdentity, downloadedBook.bookId, downloadedBook.extension)
                     )
+                check(file.parentFile!!.isDirectory || file.parentFile!!.mkdirs()) {
+                    "Das Buchverzeichnis konnte nicht angelegt werden."
+                }
 
                 file.writeBytes(
                     downloadedBook.bytes

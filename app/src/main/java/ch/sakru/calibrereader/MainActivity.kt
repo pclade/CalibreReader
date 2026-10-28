@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                         if (calibreViewModel.sessionState.value.libraryIdentity == request.libraryIdentity &&
                             calibreViewModel.uiState.value.screen == CalibreScreen.BOOKS) {
                             try {
-                                app.bookOpener.open(request.book)
+                                app.bookOpener.open(request.book, request.libraryIdentity)
                             } catch (cancelled: CancellationException) {
                                 throw cancelled
                             } catch (error: Exception) {

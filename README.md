@@ -101,7 +101,8 @@ Hash muss ebenfalls in der Entra-Registrierung hinterlegt sein.
 Die JVM-Tests verwenden lokale HTTP-Antworten und keine Cloud-Konten. Sie prüfen
 Paginierung, Dateipfade, Token-Erneuerung, Verschlüsselung, Kontowechsel und den
 Abbruch laufender Anfragen. Cover werden nach Anbieter, Konto, Bibliothek und
-Buch-ID getrennt und mit einem Speicherlimit gehalten.
+Buch-ID getrennt und mit einem Speicherlimit gehalten. Heruntergeladene Buchdateien
+liegen ebenfalls in getrennten Verzeichnissen pro Anbieter, Konto und Bibliothek.
 
 Der echte Dropbox-Login und die Buchanzeige benötigen nach der App-Key-Konfiguration
 einen Test auf einem Android-Gerät.
