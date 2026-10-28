@@ -14,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.BookFile
 import ch.sakru.calibrereader.model.LibrarySortMode
 import ch.sakru.calibrereader.model.LibraryViewMode
@@ -49,12 +51,15 @@ fun LibraryScreen(
     onSearchQueryChange: (String) -> Unit,
     sortMode: LibrarySortMode,
     onSortModeChange: (LibrarySortMode) -> Unit,
-    rootFolderId: String?,
+    libraryIdentity: LibraryIdentity,
     cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     viewMode: LibraryViewMode,
     onViewModeChange: (LibraryViewMode) -> Unit,
-    onOpenBook: (Book, BookFile) -> Unit
+    onOpenBook: (Book, BookFile) -> Unit,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onBack: () -> Unit
 ) {
     var sortMenuExpanded by
     remember {
@@ -67,6 +72,10 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .padding(16.dp)
     ) {
+
+        TextButton(onClick = onBack) { Text("Bibliotheken") }
+        if (isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -205,7 +214,7 @@ fun LibraryScreen(
 
                 LibraryList(
                     books = books,
-                    rootFolderId = rootFolderId,
+                    libraryIdentity = libraryIdentity,
                     cloudStorage = cloudStorage,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook
@@ -216,7 +225,7 @@ fun LibraryScreen(
 
                 LibraryGrid(
                     books = books,
-                    rootFolderId = rootFolderId,
+                    libraryIdentity = libraryIdentity,
                     cloudStorage = cloudStorage,
                     coverRepository = coverRepository,
                     onOpenBook = onOpenBook

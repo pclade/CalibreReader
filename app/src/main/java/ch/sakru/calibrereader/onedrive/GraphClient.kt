@@ -167,9 +167,11 @@ class GraphClient {
                     ).replace("+", "%20")
                 }
 
+        val rootPath =
+            if (rootFolderId == "root") "root" else "items/" + rootFolderId
         val url =
-            "https://graph.microsoft.com/v1.0/me/drive/items/" +
-                    "$rootFolderId:/$encodedPath:/content"
+            "https://graph.microsoft.com/v1.0/me/drive/" +
+                    rootPath + ":/" + encodedPath + ":/content"
 
         val connection =
             URL(url).openConnection() as HttpURLConnection

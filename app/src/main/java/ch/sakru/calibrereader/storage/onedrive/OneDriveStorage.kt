@@ -3,6 +3,7 @@ package ch.sakru.calibrereader.storage.onedrive
 import ch.sakru.calibrereader.onedrive.GraphClient
 import ch.sakru.calibrereader.storage.CloudItem
 import ch.sakru.calibrereader.storage.CloudStorage
+import ch.sakru.calibrereader.storage.requireRelativeCloudPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -18,6 +19,7 @@ class OneDriveStorage(
     private val graphClient: GraphClient,
     private val accessTokenProvider: () -> String
 ) : CloudStorage {
+    override val rootFolderId: String = "root"
 
     override suspend fun listChildren(
         folderId: String?
@@ -28,7 +30,7 @@ class OneDriveStorage(
                 accessTokenProvider()
 
             val items =
-                if (folderId == null) {
+                if (folderId == null || folderId == rootFolderId) {
                     graphClient.getRootItems(
                         accessToken
                     )
@@ -68,7 +70,7 @@ class OneDriveStorage(
             graphClient.downloadFileByRelativePath(
                 accessToken = accessTokenProvider(),
                 rootFolderId = rootId,
-                relativePath = relativePath
+                relativePath = requireRelativeCloudPath(relativePath)
             )
         }
 }

@@ -6,6 +6,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.BookFile
 import ch.sakru.calibrereader.storage.CloudStorage
 /**
@@ -14,7 +15,7 @@ import ch.sakru.calibrereader.storage.CloudStorage
 @Composable
 fun LibraryList(
     books: List<Book>,
-    rootFolderId: String?,
+    libraryIdentity: LibraryIdentity,
     cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
@@ -29,7 +30,7 @@ fun LibraryList(
 
             BookRow(
                 book = book,
-                rootFolderId = rootFolderId,
+                libraryIdentity = libraryIdentity,
                 cloudStorage = cloudStorage,
                 coverRepository = coverRepository,
                 onOpenBook = onOpenBook

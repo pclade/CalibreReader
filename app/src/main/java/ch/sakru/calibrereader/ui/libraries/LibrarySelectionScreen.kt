@@ -1,7 +1,9 @@
 package ch.sakru.calibrereader.ui.libraries
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,94 +13,52 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ch.sakru.calibrereader.model.SavedLibrary
 
-class LibrarySelectionScreen {
-}
-/**
- * Displays the list of previously saved Calibre libraries.
- *
- * The screen is storage-provider neutral. A saved library may reside on
- * OneDrive, Google Drive, or another supported provider.
- *
- * @param libraries libraries available to the current user.
- * @param onLibraryClick invoked when a saved library is selected.
- * @param onAddLibrary invoked when the user wants to add another library.
- */
 @Composable
 fun LibrarySelectionScreen(
+    providerName: String,
+    userName: String,
     libraries: List<SavedLibrary>,
+    isLoading: Boolean,
+    errorMessage: String?,
     onLibraryClick: (SavedLibrary) -> Unit,
-    onAddLibrary: () -> Unit
+    onAddLibrary: () -> Unit,
+    onChangeProvider: () -> Unit,
+    onSignOut: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-
-        Text(
-            text = "Meine Bibliotheken",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
-        if (libraries.isEmpty()) {
-
-            Text("Noch keine Bibliothek gespeichert.")
-
-            Spacer(
-                modifier = Modifier.height(20.dp)
-            )
+    Column(Modifier.fillMaxSize().padding(24.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = onChangeProvider) { Text("Speicher wechseln") }
+            TextButton(onClick = onSignOut, enabled = !isLoading) { Text("Abmelden") }
         }
-
-        LazyColumn(
-            modifier = Modifier.weight(1f)
-        ) {
-
-            items(libraries) { library ->
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onLibraryClick(library)
-                        }
-                        .padding(vertical = 16.dp)
-                ) {
-
-                    Text(
-                        text = "📚 ${library.name}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(4.dp)
-                    )
-
-                    Text(
-                        text = library.account,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+        Text("Meine Bibliotheken", style = MaterialTheme.typography.headlineMedium)
+        Text(providerName + " · " + userName, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(16.dp))
+        if (isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (libraries.isEmpty()) Text("Für dieses Konto ist noch keine Bibliothek gespeichert.")
+        LazyColumn(Modifier.weight(1f)) {
+            items(libraries, key = { it.id }) { library ->
+                Column(Modifier.fillMaxWidth()
+                    .clickable(enabled = !isLoading) { onLibraryClick(library) }
+                    .padding(vertical = 16.dp)) {
+                    Text("📚 " + library.name, style = MaterialTheme.typography.titleMedium)
                 }
-
                 HorizontalDivider()
             }
         }
-
         Button(
-            onClick = onAddLibrary,
-            modifier = Modifier.fillMaxWidth()
+            onClick = onAddLibrary, enabled = !isLoading, modifier = Modifier.fillMaxWidth()
         ) {
-            Text("+ Bibliothek hinzufügen")
+            Text("Bibliothek hinzufügen")
         }
     }
 }

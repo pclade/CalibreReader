@@ -1,7 +1,23 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val localConfiguration = Properties().apply {
+    val configurationFile = rootProject.file("local.properties")
+    if (configurationFile.isFile) {
+        configurationFile.inputStream().use { load(it) }
+    }
+}
+val dropboxAppKey = providers.gradleProperty("DROPBOX_APP_KEY")
+    .orElse(providers.environmentVariable("DROPBOX_APP_KEY"))
+    .getOrElse(localConfiguration.getProperty("DROPBOX_APP_KEY", ""))
+    .trim()
+require(dropboxAppKey.isEmpty() || dropboxAppKey.matches(Regex("[A-Za-z0-9]+"))) {
+    "DROPBOX_APP_KEY must contain only letters and numbers."
 }
 
 android {
@@ -14,10 +30,15 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "DROPBOX_APP_KEY", "\"" + dropboxAppKey + "\"")
+        manifestPlaceholders["dropboxRedirectScheme"] =
+            if (dropboxAppKey.isEmpty()) "db-unconfigured" else "db-" + dropboxAppKey
+        manifestPlaceholders["dropboxEnabled"] = dropboxAppKey.isNotEmpty().toString()
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -41,9 +62,13 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     implementation("com.microsoft.identity.client:msal:8.4.1")
+    implementation("com.dropbox.core:dropbox-android-sdk:7.1.1")
+    implementation("com.dropbox.core:dropbox-core-sdk:7.1.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
 }

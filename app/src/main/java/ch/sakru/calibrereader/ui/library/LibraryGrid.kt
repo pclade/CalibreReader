@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.BookFile
 import ch.sakru.calibrereader.storage.CloudStorage
 /**
@@ -15,7 +16,7 @@ import ch.sakru.calibrereader.storage.CloudStorage
 @Composable
 fun LibraryGrid(
     books: List<Book>,
-    rootFolderId: String?,
+    libraryIdentity: LibraryIdentity,
     cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
@@ -34,7 +35,7 @@ fun LibraryGrid(
 
             BookGridItem(
                 book = book,
-                rootFolderId = rootFolderId,
+                libraryIdentity = libraryIdentity,
                 cloudStorage = cloudStorage,
                 coverRepository = coverRepository,
                 onOpenBook = onOpenBook

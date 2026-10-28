@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.BookFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,17 +42,17 @@ import ch.sakru.calibrereader.storage.CloudStorage
 @Composable
 fun BookRow(
     book: Book,
-    rootFolderId: String?,
+    libraryIdentity: LibraryIdentity,
     cloudStorage: CloudStorage?,
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
 ) {
 
-    var bitmap by remember(book.id) {
+    var bitmap by remember(libraryIdentity, book.id) {
 
         mutableStateOf<Bitmap?>(
             coverRepository
-                .getCachedCover(book.id)
+                .getCachedCover(libraryIdentity, book.id)
                 ?.let { bytes ->
                     BitmapFactory.decodeByteArray(
                         bytes,
@@ -64,20 +65,19 @@ fun BookRow(
 
     LaunchedEffect(
         book.id,
-        rootFolderId,
+        libraryIdentity,
         cloudStorage
     ) {
 
         if (
             bitmap == null &&
-            rootFolderId != null &&
             cloudStorage != null
         ) {
 
             val bytes =
                 coverRepository.loadCover(
                     book = book,
-                    rootFolderId = rootFolderId,
+                    libraryIdentity = libraryIdentity,
                     cloudStorage = cloudStorage
                 )
 

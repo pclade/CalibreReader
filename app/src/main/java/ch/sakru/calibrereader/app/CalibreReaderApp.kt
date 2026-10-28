@@ -2,6 +2,10 @@ package ch.sakru.calibrereader.app
 
 import android.content.Context
 import ch.sakru.calibrereader.auth.AuthSession
+import ch.sakru.calibrereader.auth.DropboxAuthManager
+import ch.sakru.calibrereader.auth.DropboxCredentialStore
+import ch.sakru.calibrereader.auth.MicrosoftAuthManager
+import ch.sakru.calibrereader.storage.dropbox.DropboxStorage
 import ch.sakru.calibrereader.calibre.CalibreRepository
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.calibre.LibraryStorage
@@ -55,11 +59,14 @@ class CalibreReaderApp(
                 authSession.accessToken
             }
         )
+    val dropboxAuthManager = DropboxAuthManager(DropboxCredentialStore(context.applicationContext))
+    val microsoftAuthManager = MicrosoftAuthManager(context.applicationContext, authSession)
     val storageFactory =
         StorageFactory(
             storages =
                 mapOf(
-                    StorageProvider.ONEDRIVE to oneDriveStorage
+                    StorageProvider.ONEDRIVE to oneDriveStorage,
+                    StorageProvider.DROPBOX to DropboxStorage(dropboxAuthManager::requireClient)
                 )
         )
 

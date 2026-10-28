@@ -2,378 +2,244 @@ package ch.sakru.calibrereader
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
-
-import java.io.File
-import ch.sakru.calibrereader.auth.MicrosoftAuthManager
-import ch.sakru.calibrereader.model.StorageProvider
-
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import ch.sakru.calibrereader.ui.storage.onedrive.OneDriveScreen
-import ch.sakru.calibrereader.ui.login.LoginScreen
+import androidx.lifecycle.repeatOnLifecycle
+import ch.sakru.calibrereader.app.CalibreReaderApp
+import ch.sakru.calibrereader.app.CalibreReaderApplication
+import ch.sakru.calibrereader.model.StorageProvider
 import ch.sakru.calibrereader.ui.libraries.LibrarySelectionScreen
 import ch.sakru.calibrereader.ui.library.LibraryScreen
-import androidx.activity.viewModels
+import ch.sakru.calibrereader.ui.login.ProviderSelectionScreen
+import ch.sakru.calibrereader.ui.storage.CloudFolderScreen
+import ch.sakru.calibrereader.viewmodel.CalibreScreen
 import ch.sakru.calibrereader.viewmodel.CalibreViewModel
-import androidx.compose.runtime.collectAsState
-import ch.sakru.calibrereader.app.CalibreReaderApp
+import ch.sakru.calibrereader.viewmodel.InteractiveLoginRequest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var app: CalibreReaderApp
-    private lateinit var authManager: MicrosoftAuthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        app = CalibreReaderApp(applicationContext)
+        app = (application as CalibreReaderApplication).services
         lifecycleScope.launch {
-
             try {
-
-                val libraries =
-                    app.libraryStorage.loadLibraries()
-
-                val viewMode =
-                    app.libraryStorage.loadViewMode()
-
-                calibreViewModel.setSavedLibraries(
-                    libraries
-                )
-
-                calibreViewModel.setLibraryViewMode(
-                    viewMode
-                )
-
-            } catch (e: Exception) {
-
-                calibreViewModel.setError(
-                    e.message
-                        ?: e.javaClass.simpleName
-                )
+                calibreViewModel.setSavedLibraries(app.libraryStorage.loadLibraries())
+                calibreViewModel.setLibraryViewMode(app.libraryStorage.loadViewMode())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                calibreViewModel.setError("Die gespeicherten Bibliotheken konnten nicht geladen werden.")
             }
         }
-
-        authManager =
-            MicrosoftAuthManager(
-                context = applicationContext,
-                authSession = app.authSession,
-
-                onReadyChanged = { ready ->
-
-                    runOnUiThread {
-                        calibreViewModel.setMsalReady(
-                            ready
-                        )
+        lifecycleScope.launch {
+            app.microsoftAuthManager.ready.collect(calibreViewModel::setMsalReady)
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                launch {
+                    calibreViewModel.interactiveLoginRequests.collect(::startInteractiveLogin)
+                }
+                launch {
+                    calibreViewModel.booksToOpen.collect { request ->
+                        if (calibreViewModel.sessionState.value.libraryIdentity == request.libraryIdentity &&
+                            calibreViewModel.uiState.value.screen == CalibreScreen.BOOKS) {
+                            try {
+                                app.bookOpener.open(request.book)
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                calibreViewModel.setError(error.message ?: "Das Buch konnte nicht geöffnet werden.")
+                            }
+                        }
                     }
+                }
+            }
+        }
+        setContent {
+            val ui by calibreViewModel.uiState.collectAsState()
+            val session by calibreViewModel.sessionState.collectAsState()
+            val microsoftError by app.microsoftAuthManager.initializationError.collectAsState()
+            val storage = session.activeProvider?.let { app.storageFactory.getStorage(it) }
+            val identity = session.libraryIdentity
 
-                    if (ready) {
-                        checkExistingLogin()
+            BackHandler(enabled = ui.screen != CalibreScreen.PROVIDERS || ui.isLoading) {
+                when (ui.screen) {
+                    CalibreScreen.BOOKS -> calibreViewModel.showLibraries()
+                    CalibreScreen.FOLDERS ->
+                        storage?.let(calibreViewModel::navigateUp) ?: cancelConnection()
+                    CalibreScreen.LIBRARIES, CalibreScreen.PROVIDERS -> cancelConnection()
+                }
+            }
+            MaterialTheme {
+                Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    if (ui.screen == CalibreScreen.PROVIDERS || storage == null ||
+                        (ui.screen == CalibreScreen.BOOKS && identity == null)) {
+                        ProviderSelectionScreen(
+                            msalReady = ui.msalReady,
+                            microsoftError = microsoftError,
+                            dropboxConfigured = app.dropboxAuthManager.isConfigured,
+                            isLoading = ui.isLoading,
+                            errorMessage = ui.errorMessage,
+                            onSelect = ::selectProvider,
+                            onCancel = ::cancelConnection
+                        )
+                    } else {
+                        when (ui.screen) {
+                            CalibreScreen.LIBRARIES -> LibrarySelectionScreen(
+                                providerName = session.activeProvider!!.displayName,
+                                userName = ui.userName,
+                                libraries = calibreViewModel.availableLibraries,
+                                isLoading = ui.isLoading,
+                                errorMessage = ui.errorMessage,
+                                onLibraryClick = {
+                                    calibreViewModel.loadSavedLibraryAndBooks(
+                                        it, storage, cacheDir, app.calibreRepository::loadBooks
+                                    )
+                                },
+                                onAddLibrary = { calibreViewModel.browseRoot(storage) },
+                                onChangeProvider = ::cancelConnection,
+                                onSignOut = ::signOut
+                            )
+                            CalibreScreen.FOLDERS -> CloudFolderScreen(
+                                providerName = session.activeProvider!!.displayName,
+                                userName = ui.userName,
+                                currentPath = session.folderPath.map { it.name },
+                                isLoading = ui.isLoading,
+                                items = ui.currentItems,
+                                errorMessage = ui.errorMessage,
+                                calibreLibraryFound = ui.calibreLibraryFound,
+                                onFolderClick = { calibreViewModel.openFolder(it, storage) },
+                                onUseLibrary = {
+                                    calibreViewModel.useCurrentLibrary(
+                                        storage, cacheDir, app.calibreRepository::loadBooks,
+                                        app.libraryStorage::saveLibraries
+                                    )
+                                },
+                                onBack = { calibreViewModel.navigateUp(storage) },
+                                onRetry = { calibreViewModel.retryFolder(storage) }
+                            )
+                            CalibreScreen.BOOKS -> key(identity) {
+                                val books = calibreViewModel.filteredBooks
+                                LibraryScreen(
+                                    books = books,
+                                    totalBookCount = ui.books.size,
+                                    visibleBookCount = books.size,
+                                    searchQuery = ui.searchQuery,
+                                    onSearchQueryChange = calibreViewModel::setSearchQuery,
+                                    sortMode = ui.sortMode,
+                                    onSortModeChange = calibreViewModel::setSortMode,
+                                    libraryIdentity = identity!!,
+                                    cloudStorage = storage,
+                                    coverRepository = app.coverRepository,
+                                    viewMode = ui.libraryViewMode,
+                                    onViewModeChange = {
+                                        calibreViewModel.changeViewMode(it, app.libraryStorage::saveViewMode)
+                                    },
+                                    onOpenBook = { book, file -> calibreViewModel.downloadBook(book, file, storage) },
+                                    isLoading = ui.isLoading,
+                                    errorMessage = ui.errorMessage,
+                                    onBack = calibreViewModel::showLibraries
+                                )
+                            }
+                            CalibreScreen.PROVIDERS -> Unit
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::app.isInitialized && app.dropboxAuthManager.awaitingOAuth) {
+            val generation = if (calibreViewModel.sessionState.value.activeProvider == StorageProvider.DROPBOX) {
+                calibreViewModel.currentAuthenticationGeneration
+            } else {
+                calibreViewModel.beginAuthentication(StorageProvider.DROPBOX)
+            }
+            calibreViewModel.finishPendingAuthentication(generation, StorageProvider.DROPBOX) {
+                app.dropboxAuthManager.finishSignIn()
+            }
+        }
+    }
+
+    private fun selectProvider(provider: StorageProvider) {
+        if (provider != StorageProvider.DROPBOX) {
+            app.dropboxAuthManager.cancelPendingSignIn()
+        }
+        when (provider) {
+            StorageProvider.ONEDRIVE ->
+                calibreViewModel.connect(provider, app.microsoftAuthManager::restoreSessionAsync)
+            StorageProvider.DROPBOX ->
+                calibreViewModel.connect(provider, app.dropboxAuthManager::restoreSession)
+            StorageProvider.GOOGLE_DRIVE -> Unit
+        }
+    }
+
+    private fun startInteractiveLogin(request: InteractiveLoginRequest) {
+        if (!calibreViewModel.isCurrentAuthentication(request.generation, request.provider)) return
+        when (request.provider) {
+            StorageProvider.ONEDRIVE -> app.microsoftAuthManager.signIn(
+                activity = this,
+                onSuccess = { user ->
+                    runOnUiThread {
+                        calibreViewModel.completeAuthentication(request.generation, request.provider, user)
                     }
                 },
-
-                onInitializationError = { error ->
-
+                onError = {
                     runOnUiThread {
-
-                        calibreViewModel.setError(
-                            "MSAL-Initialisierung fehlgeschlagen:\n${error.message}"
-                        )
+                        calibreViewModel.authenticationFailed(request.generation, request.provider,
+                            "Die Microsoft-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.")
+                    }
+                },
+                onCancel = {
+                    runOnUiThread {
+                        calibreViewModel.authenticationFailed(request.generation, request.provider,
+                            "Anmeldung abgebrochen.")
                     }
                 }
             )
-
-        setContent {
-            val uiState by
-            calibreViewModel.uiState.collectAsState()
-            val sessionState by
-            calibreViewModel.sessionState.collectAsState()
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    if (!uiState.loggedIn) {
-                        LoginScreen(
-                            msalReady = uiState.msalReady,
-                            isLoading = uiState.isLoading,
-                            errorMessage = uiState.errorMessage,
-                            onLogin = ::startLogin
-                        )
-                    } else if (uiState.libraryLoaded) {
-
-                        val activeCloudStorage =
-                            sessionState.activeProvider?.let { provider ->
-                                app.storageFactory.getStorage(
-                                    provider
-                                )
-                            }
-
-                        val filteredBooks = calibreViewModel.filteredBooks
-
-                        LibraryScreen(
-                            books = filteredBooks,
-                            totalBookCount = uiState.books.size,
-                            visibleBookCount = filteredBooks.size,
-                            searchQuery = uiState.searchQuery,
-                            onSearchQueryChange = { query ->
-                                calibreViewModel.setSearchQuery(
-                                    query
-                                )
-                            },
-                            sortMode = uiState.sortMode,
-
-                            onSortModeChange = { mode ->
-
-                                calibreViewModel.setSortMode(
-                                    mode
-                                )
-                            },
-                            rootFolderId =
-                                sessionState.selectedLibraryRootId,
-                            cloudStorage =
-                                activeCloudStorage,
-                            coverRepository = app.coverRepository,
-                            viewMode = uiState.libraryViewMode,
-
-                            onViewModeChange = { mode ->
-
-                                calibreViewModel.changeViewMode(
-                                    mode = mode,
-                                    libraryStorage = app.libraryStorage
-                                )
-                            },
-                            onOpenBook = { book, bookFile ->
-
-                                val cloudStorage =
-                                    activeCloudStorage
-
-                                if (cloudStorage == null) {
-
-                                    calibreViewModel.setError(
-                                        "Kein aktiver Cloud-Speicher verfügbar."
-                                    )
-
-                                } else {
-
-                                    calibreViewModel.downloadBook(
-                                        book = book,
-                                        bookFile = bookFile,
-                                        cloudStorage = cloudStorage,
-                                        onSuccess = { downloadedBook ->
-
-                                            lifecycleScope.launch {
-
-                                                try {
-
-                                                    app.bookOpener.open(
-                                                        downloadedBook
-                                                    )
-
-                                                } catch (e: Exception) {
-
-                                                    calibreViewModel.setError(
-                                                        e.message
-                                                            ?: e.javaClass.simpleName
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        )
-
-                    } else if (uiState.showLibrarySelection) {
-
-                        LibrarySelectionScreen(
-                            libraries = uiState.savedLibraries,
-
-                            onLibraryClick = { library ->
-
-                                val cloudStorage =
-                                    app.storageFactory.getStorage(
-                                        library.provider
-                                    )
-
-                                calibreViewModel.loadSavedLibraryAndBooks(
-                                    library = library,
-                                    cloudStorage = cloudStorage,
-                                    calibreRepository = app.calibreRepository,
-                                    databaseFile =
-                                        File(
-                                            filesDir,
-                                            "metadata.db"
-                                        )
-                                )
-                            },
-                            onAddLibrary = {
-
-                                calibreViewModel.setShowLibrarySelection(
-                                    false
-                                )
-
-                                calibreViewModel.setActiveProvider(
-                                    StorageProvider.ONEDRIVE
-                                )
-
-                                calibreViewModel.loadRootFolder(
-                                    cloudStorage = app.oneDriveStorage,
-                                    provider = StorageProvider.ONEDRIVE
-                                )                            }
-                        )
-
-                    } else {
-
-                        OneDriveScreen(
-                            userName = uiState.userName,
-                            currentPath = uiState.currentPath,
-                            isLoading = uiState.isLoading,
-                            items = uiState.currentItems,
-                            errorMessage = uiState.errorMessage,
-                            calibreLibraryFound = uiState.calibreLibraryFound,
-
-                            onFolderClick = { item ->
-
-                                calibreViewModel.openFolder(
-                                    item = item,
-                                    cloudStorage = app.oneDriveStorage
-                                )
-                            },
-
-                            onUseLibrary = {
-
-                                calibreViewModel.saveCurrentLibrary(
-                                    libraryStorage = app.libraryStorage
-                                )
-                                calibreViewModel.loadCalibreDatabase(
-                                    cloudStorage = app.oneDriveStorage,
-                                    calibreRepository = app.calibreRepository,
-                                    databaseFile =
-                                        File(
-                                            filesDir,
-                                            "metadata.db"
-                                        )
-                                )
-                            }                        )
-                    }
-                }
+            StorageProvider.DROPBOX -> try {
+                app.dropboxAuthManager.startSignIn(this)
+            } catch (_: Exception) {
+                calibreViewModel.authenticationFailed(request.generation, request.provider,
+                    "Die Dropbox-Anmeldung konnte nicht gestartet werden.")
             }
+            StorageProvider.GOOGLE_DRIVE -> Unit
         }
     }
 
-    private fun checkExistingLogin() {
-
-        authManager.restoreSession(
-
-            onSuccess = { user ->
-
-                runOnUiThread {
-
-                    calibreViewModel.setUserName(
-                        user.userName
-                    )
-
-                    calibreViewModel.setLoggedIn(
-                        true
-                    )
-
-                    calibreViewModel.loadRootFolder(
-                        cloudStorage = app.oneDriveStorage,
-                        provider = StorageProvider.ONEDRIVE
-                    )                }
-            },
-
-            onNoAccount = {
-
-                runOnUiThread {
-
-                    calibreViewModel.setLoggedIn(
-                        false
-                    )
-                }
-            },
-
-            onError = { exception ->
-
-                runOnUiThread {
-
-                    calibreViewModel.setLoggedIn(
-                        false
-                    )
-
-                    calibreViewModel.setError(
-                        exception.message
-                            ?: exception.javaClass.simpleName
-                    )
-                }
-            }
-        )
+    private fun cancelConnection() {
+        app.dropboxAuthManager.cancelPendingSignIn()
+        calibreViewModel.showProviders()
     }
 
-    private fun startLogin() {
-
-        calibreViewModel.clearError()
-        calibreViewModel.setLoading(
-            true
-        )
-
-        authManager.signIn(
-
-            activity = this,
-
-            onSuccess = { user ->
-
-                runOnUiThread {
-
-                    calibreViewModel.setUserName(
-                        user.userName
-                    )
-
-                    calibreViewModel.setLoggedIn(
-                        true
-                    )
-
-                    calibreViewModel.loadRootFolder(
-                        cloudStorage = app.oneDriveStorage,
-                        provider = StorageProvider.ONEDRIVE
-                    )
-                }
-            },
-
-            onError = { error ->
-
-                runOnUiThread {
-
-                    calibreViewModel.setError(
-                        error.message
-                            ?: error.javaClass.simpleName
-                    )
-
-                    calibreViewModel.setLoading(
-                        false
-                    )
-                }
-            },
-
-            onCancel = {
-
-                runOnUiThread {
-
-                    calibreViewModel.setError(
-                        "Anmeldung wurde abgebrochen."
-                    )
-
-                    calibreViewModel.setLoading(
-                        false
-                    )
-                }
+    private fun signOut() {
+        val provider = calibreViewModel.sessionState.value.activeProvider ?: return
+        app.coverRepository.clear()
+        calibreViewModel.signOut {
+            when (provider) {
+                StorageProvider.ONEDRIVE -> app.microsoftAuthManager.signOutAsync()
+                StorageProvider.DROPBOX -> withContext(Dispatchers.IO) { app.dropboxAuthManager.signOut() }
+                StorageProvider.GOOGLE_DRIVE -> Unit
             }
-        )
-    }}
+        }
+    }
+}

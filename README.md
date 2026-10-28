@@ -1,22 +1,32 @@
 # Calibre To Go
 
-Android-App zum lesenden Zugriff auf Calibre-Bibliotheken in OneDrive.
+Android-App zum lesenden Zugriff auf Calibre-Bibliotheken in OneDrive und Dropbox.
 Der Projekt- und Paketname lautet weiterhin `CalibreReader` beziehungsweise
 `ch.sakru.calibrereader`.
 
 ## Aktueller Funktionsumfang
 
 - Anmeldung mit einem Microsoft-365-Geschäfts- oder Schulkonto.
+- Dropbox-Anmeldung mit PKCE und verschlüsselt gespeicherter Sitzung.
+- Wechsel zwischen Cloud-Speichern und nach Anbieter und Konto getrennte Bibliotheken.
 - Ordnernavigation und Erkennung einer Calibre-Bibliothek über `metadata.db`.
 - Lokal gespeicherte Bibliotheksauswahl und Listen- oder Rasteransicht.
 - Anzeige von Büchern und Covern sowie Download und Öffnen von Buchdateien.
 - Suche nach Titel oder Autor ohne Beachtung der Gross-/Kleinschreibung.
 - Sortierung nach Titel oder Autor, jeweils auf- oder absteigend.
 
-Die App schreibt nichts in OneDrive. Die gemeinsame Schnittstelle `CloudStorage`
+Die App schreibt nichts in die Cloud-Bibliotheken. Die gemeinsame Schnittstelle `CloudStorage`
 wird für Metadaten, Cover und Buchdateien verwendet. Google Drive ist im
-Anbietermodell vorgesehen; Google Drive und Dropbox sind noch nicht implementiert.
+Anbietermodell vorgesehen; Google Drive ist noch nicht implementiert.
 Die Suchanfrage und die Sortierauswahl gelten bisher nur für die laufende Sitzung.
+
+## Dropbox einrichten
+
+Der Entwickler hinterlegt einmalig den öffentlichen Dropbox-App-Key als
+`DROPBOX_APP_KEY` in `local.properties`, als Gradle-Property oder als gleichnamige
+Umgebungsvariable. Die Schritte stehen in [docs/Dropbox.md](docs/Dropbox.md).
+Ohne Key bleibt Dropbox in der Speicherauswahl deaktiviert. OneDrive und die
+JVM-Tests benötigen diesen Key nicht.
 
 ## Projekt bauen
 
@@ -34,13 +44,13 @@ heruntergeladen; die Gradle-Distribution wird anhand ihrer SHA-256-Prüfsumme ge
 Windows:
 
 ```cmd
-gradlew.bat :app:assembleDebug :app:lintDebug
+gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
 Linux und macOS:
 
 ```sh
-./gradlew :app:assembleDebug :app:lintDebug
+./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
 Die Debug-APK liegt anschliessend unter
@@ -56,6 +66,7 @@ Verwendete Build-Versionen:
 | Compose BOM | 2026.06.00 |
 | Activity Compose | 1.13.0 |
 | MSAL Android | 8.4.1 |
+| Dropbox Java-/Android-SDK | 7.1.1 |
 
 Die Version von Material3 wird gemeinsam mit den übrigen Compose-Bibliotheken
 über die Compose BOM verwaltet.
@@ -85,8 +96,17 @@ Ein erfolgreicher Build bestätigt noch keine Anmeldung: Auf einem anderen
 Entwicklungsrechner kann ein anderes Debug-Zertifikat verwendet werden. Dessen
 Hash muss ebenfalls in der Entra-Registrierung hinterlegt sein.
 
+## Validierung
+
+Die JVM-Tests verwenden lokale HTTP-Antworten und keine Cloud-Konten. Sie prüfen
+Paginierung, Dateipfade, Token-Erneuerung, Verschlüsselung, Kontowechsel und den
+Abbruch laufender Anfragen. Cover werden nach Anbieter, Konto, Bibliothek und
+Buch-ID getrennt und mit einem Speicherlimit gehalten.
+
+Der echte Dropbox-Login und die Buchanzeige benötigen nach der App-Key-Konfiguration
+einen Test auf einem Android-Gerät.
+
 ## Nächste Erweiterungen
 
-- Dropbox und Google Drive mit eigener Anmeldung und Anbieterauswahl.
-- Getrennte Sitzungs- und Cache-Zuordnung für mehrere Cloud-Anbieter und Bibliotheken.
+- Google Drive mit eigener Anmeldung.
 - Vorbereitung der Release-Signierung und der Veröffentlichung im Google Play Store.

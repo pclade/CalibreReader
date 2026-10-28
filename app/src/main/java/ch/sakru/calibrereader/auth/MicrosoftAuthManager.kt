@@ -10,14 +10,28 @@ import com.microsoft.identity.client.PublicClientApplication
 import com.microsoft.identity.client.SignInParameters
 import com.microsoft.identity.client.exception.MsalException
 import ch.sakru.calibrereader.R
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import java.util.concurrent.atomic.AtomicLong
 
 class MicrosoftAuthManager(
     context: Context,
     private val authSession: AuthSession,
-    private val onReadyChanged: (Boolean) -> Unit,
-    private val onInitializationError: (Exception) -> Unit
+    private val onReadyChanged: (Boolean) -> Unit = {},
+    private val onInitializationError: (Exception) -> Unit = {}
 ) {
     private var msalApp: ISingleAccountPublicClientApplication? = null
+    private val sessionRevision = AtomicLong()
+    private val sessionLock = Any()
+    private val initialized = CompletableDeferred<Unit>()
+    private val _ready = MutableStateFlow(false)
+    val ready = _ready.asStateFlow()
+    private val _initializationError = MutableStateFlow<String?>(null)
+    val initializationError = _initializationError.asStateFlow()
 
     init {
         PublicClientApplication.createSingleAccountPublicClientApplication(
@@ -29,10 +43,14 @@ class MicrosoftAuthManager(
                     application: ISingleAccountPublicClientApplication
                 ) {
                     msalApp = application
+                    initialized.complete(Unit)
+                    _ready.value = true
                     onReadyChanged(true)
                 }
 
                 override fun onError(exception: MsalException) {
+                    initialized.completeExceptionally(exception)
+                    _initializationError.value = "Die Microsoft-Anmeldung ist momentan nicht verfügbar."
                     onInitializationError(exception)
                 }
             }
@@ -55,6 +73,7 @@ class MicrosoftAuthManager(
         onError: (Exception) -> Unit,
         onCancel: () -> Unit
     ) {
+        val revision = nextRevision()
         val app = msalApp
 
         if (app == null) {
@@ -72,9 +91,7 @@ class MicrosoftAuthManager(
                 override fun onSuccess(
                     authenticationResult: IAuthenticationResult
                 ) {
-                    authSession.updateAccessToken(
-                        authenticationResult.accessToken
-                    )
+                    if (!setTokenIfCurrent(revision, authenticationResult.accessToken)) return
 
                     onSuccess(
                         AuthenticatedUser(
@@ -126,6 +143,7 @@ class MicrosoftAuthManager(
         onNoAccount: () -> Unit,
         onError: (Exception) -> Unit
     ) {
+        val revision = nextRevision()
         val app = msalApp
 
         if (app == null) {
@@ -144,6 +162,7 @@ class MicrosoftAuthManager(
                 override fun onAccountLoaded(
                     activeAccount: com.microsoft.identity.client.IAccount?
                 ) {
+                    if (revision != sessionRevision.get()) return
                     if (activeAccount == null) {
                         onNoAccount()
                         return
@@ -151,6 +170,7 @@ class MicrosoftAuthManager(
 
                     acquireTokenSilent(
                         account = activeAccount,
+                        revision = revision,
                         onSuccess = onSuccess,
                         onError = onError
                     )
@@ -160,8 +180,7 @@ class MicrosoftAuthManager(
                     priorAccount: com.microsoft.identity.client.IAccount?,
                     currentAccount: com.microsoft.identity.client.IAccount?
                 ) {
-                    if (currentAccount == null) {
-                        authSession.clear()
+                    if (currentAccount == null && clearSessionIfCurrent(revision)) {
                         onNoAccount()
                     }
                 }
@@ -176,6 +195,7 @@ class MicrosoftAuthManager(
     }
     private fun acquireTokenSilent(
         account: com.microsoft.identity.client.IAccount,
+        revision: Long,
         onSuccess: (AuthenticatedUser) -> Unit,
         onError: (Exception) -> Unit
     ) {
@@ -202,9 +222,7 @@ class MicrosoftAuthManager(
                 override fun onSuccess(
                     authenticationResult: IAuthenticationResult
                 ) {
-                    authSession.updateAccessToken(
-                        authenticationResult.accessToken
-                    )
+                    if (!setTokenIfCurrent(revision, authenticationResult.accessToken)) return
 
                     onSuccess(
                         AuthenticatedUser(
@@ -221,4 +239,47 @@ class MicrosoftAuthManager(
                 }
             }
         )
-    }}
+    }
+    suspend fun restoreSessionAsync(): AuthenticatedUser? {
+        initialized.await()
+        return suspendCancellableCoroutine { continuation ->
+            restoreSession(
+                onSuccess = { if (continuation.isActive) continuation.resume(it) },
+                onNoAccount = { if (continuation.isActive) continuation.resume(null) },
+                onError = { if (continuation.isActive) continuation.resumeWithException(it) }
+            )
+        }
+    }
+
+    suspend fun signOutAsync() {
+        initialized.await()
+        val revision = nextRevision()
+        suspendCancellableCoroutine<Unit> { continuation ->
+            msalApp!!.signOut(object : ISingleAccountPublicClientApplication.SignOutCallback {
+                override fun onSignOut() {
+                    clearSessionIfCurrent(revision)
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+                override fun onError(exception: MsalException) {
+                    if (continuation.isActive) continuation.resumeWithException(exception)
+                }
+            })
+        }
+    }
+
+    private fun nextRevision(): Long = synchronized(sessionLock) {
+        sessionRevision.incrementAndGet()
+    }
+
+    private fun setTokenIfCurrent(revision: Long, token: String): Boolean = synchronized(sessionLock) {
+        if (revision != sessionRevision.get()) return@synchronized false
+        authSession.updateAccessToken(token)
+        true
+    }
+
+    private fun clearSessionIfCurrent(revision: Long): Boolean = synchronized(sessionLock) {
+        if (revision != sessionRevision.get()) return@synchronized false
+        authSession.clear()
+        true
+    }
+}
