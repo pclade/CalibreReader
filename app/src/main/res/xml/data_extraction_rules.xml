@@ -2,8 +2,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="cloud_credentials.xml" />
+        <exclude domain="sharedpref" path="google_drive_account.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="cloud_credentials.xml" />
+        <exclude domain="sharedpref" path="google_drive_account.xml" />
     </device-transfer>
 </data-extraction-rules>

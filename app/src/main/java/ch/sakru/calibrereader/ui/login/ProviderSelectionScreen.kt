@@ -53,6 +53,12 @@ fun ProviderSelectionScreen(
             Text("Dropbox ist in dieser Testversion noch nicht eingerichtet.",
                 style = MaterialTheme.typography.bodySmall)
         }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { onSelect(StorageProvider.GOOGLE_DRIVE) },
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Mit Google Drive verbinden") }
         Spacer(Modifier.height(16.dp))
         Text("Deine Bibliotheken werden nur gelesen.", style = MaterialTheme.typography.bodyMedium)
         if (isLoading) {

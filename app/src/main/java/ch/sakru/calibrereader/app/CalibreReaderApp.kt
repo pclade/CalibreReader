@@ -1,6 +1,12 @@
 package ch.sakru.calibrereader.app
 
 import android.content.Context
+import ch.sakru.calibrereader.auth.GoogleDriveAccountStore
+import ch.sakru.calibrereader.auth.GoogleDriveAuthManager
+import ch.sakru.calibrereader.auth.GooglePlayDriveAuthorization
+import ch.sakru.calibrereader.storage.googledrive.GoogleDriveApiFactory
+import ch.sakru.calibrereader.storage.googledrive.GoogleDriveClient
+import ch.sakru.calibrereader.storage.googledrive.GoogleDriveStorage
 import ch.sakru.calibrereader.auth.AuthSession
 import ch.sakru.calibrereader.auth.DropboxAuthManager
 import ch.sakru.calibrereader.auth.DropboxCredentialStore
@@ -61,12 +67,18 @@ class CalibreReaderApp(
         )
     val dropboxAuthManager = DropboxAuthManager(DropboxCredentialStore(context.applicationContext))
     val microsoftAuthManager = MicrosoftAuthManager(context.applicationContext, authSession)
+    val googleDriveAuthorization = GooglePlayDriveAuthorization(context.applicationContext)
+    val googleDriveAuthManager = GoogleDriveAuthManager(
+        googleDriveAuthorization, GoogleDriveAccountStore(context.applicationContext),
+        GoogleDriveApiFactory { GoogleDriveClient(it) }
+    )
     val storageFactory =
         StorageFactory(
             storages =
                 mapOf(
                     StorageProvider.ONEDRIVE to oneDriveStorage,
-                    StorageProvider.DROPBOX to DropboxStorage(dropboxAuthManager::requireClient)
+                    StorageProvider.DROPBOX to DropboxStorage(dropboxAuthManager::requireClient),
+                    StorageProvider.GOOGLE_DRIVE to GoogleDriveStorage(googleDriveAuthManager::requireClient)
                 )
         )
 

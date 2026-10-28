@@ -35,7 +35,7 @@ jobs:
           PY
       - name: Build, unit tests and Android Lint
         run: ./gradlew --no-daemon --console=plain :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
-      - name: Verify configured Dropbox redirect
+      - name: Verify cloud authorization configuration
         run: |
           ./gradlew --no-daemon --console=plain :app:processDebugMainManifest -PDROPBOX_APP_KEY=publicfixture
           python3 - <<'PY'
@@ -49,7 +49,13 @@ jobs:
           assert activity.get(android + 'enabled') == 'true'
           assert activity.get(android + 'launchMode') == 'singleTask'
           assert any(x.get(android + 'scheme') == 'db-publicfixture' for x in activity.findall('./intent-filter/data'))
-          print('Dropbox redirect and enabled state verified')
+          google = next(x for x in root.findall('./application/activity') if x.get(android + 'name') == 'ch.sakru.calibrereader.auth.GoogleDriveAuthorizationActivity')
+          assert google.get(android + 'exported') == 'false'
+          for resource in ['backup_rules.xml', 'data_extraction_rules.xml']:
+              policy = ET.parse(Path('app/src/main/res/xml') / resource).getroot()
+              for section in ([policy] if resource == 'backup_rules.xml' else list(policy)):
+                  assert any(x.get('domain') == 'sharedpref' and x.get('path') == 'google_drive_account.xml' for x in section.findall('exclude'))
+          print('Dropbox redirect, internal Google consent activity and backup exclusions verified')
           PY
       - name: Summarize verification
         if: always()

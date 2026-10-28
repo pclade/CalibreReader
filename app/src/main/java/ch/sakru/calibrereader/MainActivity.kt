@@ -1,6 +1,9 @@
 package ch.sakru.calibrereader
 
+import android.app.Activity
 import android.os.Bundle
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -16,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import ch.sakru.calibrereader.auth.GoogleDriveAuthorizationActivity
+import ch.sakru.calibrereader.auth.GoogleDriveConsent
 import ch.sakru.calibrereader.app.CalibreReaderApp
 import ch.sakru.calibrereader.app.CalibreReaderApplication
 import ch.sakru.calibrereader.model.StorageProvider
@@ -34,6 +39,9 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var app: CalibreReaderApp
+    private val googleAuthorizationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(), ::finishGoogleAuthorization
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +63,15 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 launch {
                     calibreViewModel.interactiveLoginRequests.collect(::startInteractiveLogin)
+                }
+                launch {
+                    app.googleDriveAuthManager.consent.collect { consent ->
+                        if (consent != null &&
+                            calibreViewModel.isCurrentAuthentication(consent.generation, StorageProvider.GOOGLE_DRIVE) &&
+                            app.googleDriveAuthManager.markConsentLaunched(consent.revision)) {
+                            launchGoogleAuthorization(consent)
+                        }
+                    }
                 }
                 launch {
                     calibreViewModel.booksToOpen.collect { request ->
@@ -184,12 +201,14 @@ class MainActivity : ComponentActivity() {
         if (provider != StorageProvider.DROPBOX) {
             app.dropboxAuthManager.cancelPendingSignIn()
         }
+        app.googleDriveAuthManager.cancelPendingSignIn()
         when (provider) {
             StorageProvider.ONEDRIVE ->
                 calibreViewModel.connect(provider, app.microsoftAuthManager::restoreSessionAsync)
             StorageProvider.DROPBOX ->
                 calibreViewModel.connect(provider, app.dropboxAuthManager::restoreSession)
-            StorageProvider.GOOGLE_DRIVE -> Unit
+            StorageProvider.GOOGLE_DRIVE ->
+                calibreViewModel.connect(provider, app.googleDriveAuthManager::restoreSession)
         }
     }
 
@@ -222,11 +241,43 @@ class MainActivity : ComponentActivity() {
                 calibreViewModel.authenticationFailed(request.generation, request.provider,
                     "Die Dropbox-Anmeldung konnte nicht gestartet werden.")
             }
-            StorageProvider.GOOGLE_DRIVE -> Unit
+            StorageProvider.GOOGLE_DRIVE ->
+                calibreViewModel.finishPendingAuthentication(
+                    request.generation, request.provider, keepPending = true
+                ) { app.googleDriveAuthManager.startSignIn(request.generation) }
+        }
+    }
+
+    private fun launchGoogleAuthorization(consent: GoogleDriveConsent) {
+        try {
+            googleAuthorizationLauncher.launch(GoogleDriveAuthorizationActivity.request(
+                this, consent.id, consent.intent
+            ))
+        } catch (_: Exception) {
+            app.googleDriveAuthManager.cancelPendingSignIn()
+            calibreViewModel.authenticationFailed(consent.generation, StorageProvider.GOOGLE_DRIVE,
+                "Die Google-Anmeldung konnte nicht geöffnet werden.")
+        }
+    }
+
+    private fun finishGoogleAuthorization(result: ActivityResult) {
+        val pending = app.googleDriveAuthManager.consent.value ?: return
+        if (result.data?.getStringExtra(GoogleDriveAuthorizationActivity.REQUEST_ID) != pending.id ||
+            !calibreViewModel.isCurrentAuthentication(pending.generation, StorageProvider.GOOGLE_DRIVE)) return
+        if (result.resultCode != Activity.RESULT_OK || result.data == null) {
+            app.googleDriveAuthManager.cancelPendingSignIn()
+            calibreViewModel.authenticationFailed(pending.generation, StorageProvider.GOOGLE_DRIVE,
+                "Google-Anmeldung abgebrochen. Bitte erneut verbinden.")
+            return
+        }
+        calibreViewModel.finishPendingAuthentication(pending.generation, StorageProvider.GOOGLE_DRIVE) {
+            app.googleDriveAuthManager.finishSignIn(pending.revision,
+                app.googleDriveAuthorization.readResult(result.data!!))
         }
     }
 
     private fun cancelConnection() {
+        app.googleDriveAuthManager.cancelPendingSignIn()
         app.dropboxAuthManager.cancelPendingSignIn()
         calibreViewModel.showProviders()
     }
@@ -238,7 +289,7 @@ class MainActivity : ComponentActivity() {
             when (provider) {
                 StorageProvider.ONEDRIVE -> app.microsoftAuthManager.signOutAsync()
                 StorageProvider.DROPBOX -> withContext(Dispatchers.IO) { app.dropboxAuthManager.signOut() }
-                StorageProvider.GOOGLE_DRIVE -> Unit
+                StorageProvider.GOOGLE_DRIVE -> app.googleDriveAuthManager.signOut()
             }
         }
     }

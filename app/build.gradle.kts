@@ -61,6 +61,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
 
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.21.8")
     implementation("com.microsoft.identity.client:msal:8.4.1")
     implementation("com.dropbox.core:dropbox-android-sdk:7.1.1")
     implementation("com.dropbox.core:dropbox-core-sdk:7.1.1")

@@ -115,15 +115,17 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
                 else completeAuthentication(generation, provider, user)
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 authenticationFailed(generation, provider,
-                    "Die Verbindung konnte nicht hergestellt werden. Bitte Internetverbindung prüfen und erneut versuchen.")
+                    if (provider == StorageProvider.GOOGLE_DRIVE && !error.message.isNullOrBlank()) error.message!!
+                    else "Die Verbindung konnte nicht hergestellt werden. Bitte Internetverbindung prüfen und erneut versuchen.")
             }
         }
     }
 
     fun finishPendingAuthentication(
-        generation: Long, provider: StorageProvider, finish: suspend () -> AuthenticatedUser?
+        generation: Long, provider: StorageProvider, keepPending: Boolean = false,
+        finish: suspend () -> AuthenticatedUser?
     ) {
         if (!isCurrentAuthentication(generation, provider)) return
         authJob?.cancel()
@@ -131,12 +133,13 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
             try {
                 val user = finish()
                 if (user != null) completeAuthentication(generation, provider, user)
-                else authenticationFailed(generation, provider, "Anmeldung abgebrochen. Bitte erneut verbinden.")
+                else if (!keepPending) authenticationFailed(generation, provider, "Anmeldung abgebrochen. Bitte erneut verbinden.")
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 authenticationFailed(generation, provider,
-                    "Die Anmeldung konnte nicht abgeschlossen werden. Bitte erneut verbinden.")
+                    if (provider == StorageProvider.GOOGLE_DRIVE && !error.message.isNullOrBlank()) error.message!!
+                    else "Die Anmeldung konnte nicht abgeschlossen werden. Bitte erneut verbinden.")
             }
         }
     }

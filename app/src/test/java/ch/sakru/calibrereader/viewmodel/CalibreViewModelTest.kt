@@ -49,6 +49,30 @@ class CalibreViewModelTest {
         Dispatchers.resetMain()
     }
 
+    @Test fun googleConsentKeepsLoadingUntilTheActivityResultCompletes() = runTest(dispatcher) {
+        val model = model()
+        val generation = model.beginAuthentication(StorageProvider.GOOGLE_DRIVE)
+        model.finishPendingAuthentication(generation, StorageProvider.GOOGLE_DRIVE, keepPending = true) { null }
+        advanceUntilIdle()
+        assertTrue(model.uiState.value.isLoading)
+        assertNull(model.uiState.value.errorMessage)
+        model.completeAuthentication(generation, StorageProvider.GOOGLE_DRIVE,
+            AuthenticatedUser("reader@example.invalid", "google-account"))
+        assertEquals(CalibreScreen.LIBRARIES, model.uiState.value.screen)
+        assertFalse(model.uiState.value.isLoading)
+    }
+
+    @Test fun cancelledGoogleConsentCannotCompleteAfterAProviderSwitch() = runTest(dispatcher) {
+        val model = model()
+        val generation = model.beginAuthentication(StorageProvider.GOOGLE_DRIVE)
+        model.showProviders()
+        model.beginAuthentication(StorageProvider.DROPBOX)
+        model.completeAuthentication(generation, StorageProvider.GOOGLE_DRIVE,
+            AuthenticatedUser("wrong@example.invalid", "old-google-account"))
+        assertEquals(StorageProvider.DROPBOX, model.sessionState.value.activeProvider)
+        assertTrue(model.sessionState.value.accountId.isBlank())
+    }
+
     @Test fun anOldLoginCannotReplaceTheSelectedProvider() = runTest(dispatcher) {
         val model = model()
         val old = model.beginAuthentication(StorageProvider.ONEDRIVE)

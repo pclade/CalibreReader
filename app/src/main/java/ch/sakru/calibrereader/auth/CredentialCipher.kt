@@ -6,11 +6,18 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /** Authenticated encryption; each saved credential gets a fresh random IV. */
-class CredentialCipher(private val keyProvider: () -> SecretKey) {
+class CredentialCipher private constructor(
+    private val keyProvider: () -> SecretKey,
+    private val associatedData: ByteArray
+) {
+    constructor(keyProvider: () -> SecretKey) : this(keyProvider, "calibre-to-go/dropbox/v1")
+    constructor(keyProvider: () -> SecretKey, context: String) :
+        this(keyProvider, context.toByteArray(Charsets.UTF_8))
+
     fun encrypt(plaintext: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, keyProvider())
-        cipher.updateAAD(CONTEXT)
+        cipher.updateAAD(associatedData)
         return listOf(
             "1",
             Base64.getEncoder().encodeToString(cipher.iv),
@@ -25,11 +32,8 @@ class CredentialCipher(private val keyProvider: () -> SecretKey) {
         require(iv.size == 12) { "Invalid credential IV." }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, keyProvider(), GCMParameterSpec(128, iv))
-        cipher.updateAAD(CONTEXT)
+        cipher.updateAAD(associatedData)
         return String(cipher.doFinal(Base64.getDecoder().decode(parts[2])), Charsets.UTF_8)
     }
 
-    private companion object {
-        val CONTEXT = "calibre-to-go/dropbox/v1".toByteArray(Charsets.UTF_8)
-    }
 }

@@ -35,6 +35,15 @@ class CredentialCipherTest {
         }
     }
 
+    @Test fun credentialsFromAnotherProviderCannotBeReusedEvenWithTheSameKey() {
+        val google = CredentialCipher({ key }, "calibre-to-go/google-drive/v1")
+        assertThrows(GeneralSecurityException::class.java) {
+            google.decrypt(cipher.encrypt("fixture-account"))
+        }
+        val account = google.encrypt("a@example.invalid")
+        assertEquals("a@example.invalid", google.decrypt(account))
+    }
+
     @Test fun malformedAndUnsupportedFormatsAreRejected() {
         for (value in listOf("", "plaintext-token", "2:a:b", "1:invalid:a")) {
             assertThrows(IllegalArgumentException::class.java) { cipher.decrypt(value) }

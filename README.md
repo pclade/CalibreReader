@@ -1,6 +1,6 @@
 # Calibre To Go
 
-Android-App zum lesenden Zugriff auf Calibre-Bibliotheken in OneDrive und Dropbox.
+Android-App zum lesenden Zugriff auf Calibre-Bibliotheken in OneDrive, Dropbox und Google Drive.
 Der Projekt- und Paketname lautet weiterhin `CalibreReader` beziehungsweise
 `ch.sakru.calibrereader`.
 
@@ -8,6 +8,7 @@ Der Projekt- und Paketname lautet weiterhin `CalibreReader` beziehungsweise
 
 - Anmeldung mit einem Microsoft-365-Geschäfts- oder Schulkonto.
 - Dropbox-Anmeldung mit PKCE und verschlüsselt gespeicherter Sitzung.
+- Google-Drive-Autorisierung über Google Play-Dienste mit erneuerbaren Zugriffstokens.
 - Wechsel zwischen Cloud-Speichern und nach Anbieter und Konto getrennte Bibliotheken.
 - Ordnernavigation und Erkennung einer Calibre-Bibliothek über `metadata.db`.
 - Lokal gespeicherte Bibliotheksauswahl und Listen- oder Rasteransicht.
@@ -16,8 +17,8 @@ Der Projekt- und Paketname lautet weiterhin `CalibreReader` beziehungsweise
 - Sortierung nach Titel oder Autor, jeweils auf- oder absteigend.
 
 Die App schreibt nichts in die Cloud-Bibliotheken. Die gemeinsame Schnittstelle `CloudStorage`
-wird für Metadaten, Cover und Buchdateien verwendet. Google Drive ist im
-Anbietermodell vorgesehen; Google Drive ist noch nicht implementiert.
+wird für Metadaten, Cover und Buchdateien verwendet. Google Drive unterstützt
+Ordnernavigation, gespeicherte Bibliotheken und erreichbare Drive-Verknüpfungen.
 Die Suchanfrage und die Sortierauswahl gelten bisher nur für die laufende Sitzung.
 
 ## Dropbox einrichten
@@ -27,6 +28,17 @@ Der Entwickler hinterlegt einmalig den öffentlichen Dropbox-App-Key als
 Umgebungsvariable. Die Schritte stehen in [docs/Dropbox.md](docs/Dropbox.md).
 Ohne Key bleibt Dropbox in der Speicherauswahl deaktiviert. OneDrive und die
 JVM-Tests benötigen diesen Key nicht.
+
+## Google Drive einrichten
+
+Im Google-Cloud-Projekt die Drive API aktivieren und einen Android-OAuth-Client
+für `ch.sakru.calibrereader` sowie den SHA-1 der installierten App anlegen.
+Für den ersten Test das eigene Konto als Testnutzer eintragen. Es wird kein
+Google-Schlüssel in local.properties hinterlegt.
+Einrichtung, Berechtigungen und Gerätetests stehen in
+[docs/google-drive.md](docs/google-drive.md). Die verwendete Leseberechtigung
+ist ein Restricted Scope und benötigt vor der öffentlichen Nutzung die
+entsprechende Google-OAuth-Prüfung.
 
 ## Projekt bauen
 
@@ -67,6 +79,8 @@ Verwendete Build-Versionen:
 | Activity Compose | 1.13.0 |
 | MSAL Android | 8.4.1 |
 | Dropbox Java-/Android-SDK | 7.1.1 |
+| Google Play services Auth | 22.0.0 |
+| Jackson Core (LTS) | 2.21.8 |
 
 Die Version von Material3 wird gemeinsam mit den übrigen Compose-Bibliotheken
 über die Compose BOM verwaltet.
@@ -104,10 +118,9 @@ Abbruch laufender Anfragen. Cover werden nach Anbieter, Konto, Bibliothek und
 Buch-ID getrennt und mit einem Speicherlimit gehalten. Heruntergeladene Buchdateien
 liegen ebenfalls in getrennten Verzeichnissen pro Anbieter, Konto und Bibliothek.
 
-Der echte Dropbox-Login und die Buchanzeige benötigen nach der App-Key-Konfiguration
-einen Test auf einem Android-Gerät.
+Für Dropbox und Google Drive sind nach ihrer jeweiligen Entwickler-Konfiguration
+zusätzliche Tests der echten Anmeldung, Cover und Buchdateien auf einem Android-Gerät erforderlich.
 
 ## Nächste Erweiterungen
 
-- Google Drive mit eigener Anmeldung.
 - Vorbereitung der Release-Signierung und der Veröffentlichung im Google Play Store.
