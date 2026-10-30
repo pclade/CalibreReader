@@ -1,0 +1,16 @@
+name = "calibre-to-go-feedback"
+main = "src/index.js"
+compatibility_date = "2026-10-30"
+
+[vars]
+TURNSTILE_SITE_KEY = "REPLACE_WITH_TURNSTILE_SITE_KEY"
+GITHUB_REPO = "pclade/CalibreReader"
+EXPECTED_HOSTNAME = ""
+
+[[ratelimits]]
+name = "FEEDBACK_RATE_LIMITER"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 3
+period = 60
