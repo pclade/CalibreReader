@@ -46,7 +46,7 @@ class GoogleDriveAuthManagerTest {
             StandardTestDispatcher(testScheduler))
         val error = runCatching { manager.startSignIn(1) }.exceptionOrNull()
         assertTrue(error is IOException)
-        assertTrue(error!!.message!!.contains("Leseberechtigung"))
+        assertTrue(error!!.message!!.contains("read access"))
         assertNull(store.account)
         assertThrows(IllegalStateException::class.java) { manager.requireClient() }
     }

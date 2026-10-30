@@ -24,14 +24,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import ch.sakru.calibrereader.R
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
-import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.BookFile
+import ch.sakru.calibrereader.model.LibraryIdentity
+import ch.sakru.calibrereader.storage.CloudStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ch.sakru.calibrereader.storage.CloudStorage
 
 /**
  * Displays a single book in the list representation.
@@ -47,9 +49,7 @@ fun BookRow(
     coverRepository: CoverRepository,
     onOpenBook: (Book, BookFile) -> Unit
 ) {
-
     var bitmap by remember(libraryIdentity, book.id) {
-
         mutableStateOf<Bitmap?>(
             coverRepository
                 .getCachedCover(libraryIdentity, book.id)
@@ -68,12 +68,10 @@ fun BookRow(
         libraryIdentity,
         cloudStorage
     ) {
-
         if (
             bitmap == null &&
             cloudStorage != null
         ) {
-
             val bytes =
                 coverRepository.loadCover(
                     book = book,
@@ -83,9 +81,7 @@ fun BookRow(
 
             bitmap =
                 bytes?.let { coverBytes ->
-
                     withContext(Dispatchers.IO) {
-
                         BitmapFactory.decodeByteArray(
                             coverBytes,
                             0,
@@ -101,34 +97,22 @@ fun BookRow(
             .fillMaxWidth()
             .padding(vertical = 12.dp)
     ) {
-
         if (bitmap != null) {
-
             Image(
-                bitmap =
-                    bitmap!!.asImageBitmap(),
-
-                contentDescription =
-                    "Cover von ${book.title}",
-
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = stringResource(R.string.cover_of, book.title),
                 modifier = Modifier
                     .width(80.dp)
                     .height(120.dp),
-
-                contentScale =
-                    ContentScale.Crop
+                contentScale = ContentScale.Crop
             )
-
         } else {
-
             Box(
                 modifier = Modifier
                     .width(80.dp)
                     .height(120.dp),
-                contentAlignment =
-                    Alignment.Center
+                contentAlignment = Alignment.Center
             ) {
-
                 Text("📖")
             }
         }
@@ -138,14 +122,11 @@ fun BookRow(
         )
 
         Column(
-            modifier =
-                Modifier.weight(1f)
+            modifier = Modifier.weight(1f)
         ) {
-
             Text(
                 text = book.title,
-                style =
-                    MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium
             )
 
             Spacer(
@@ -154,8 +135,7 @@ fun BookRow(
 
             Text(
                 text = book.authors,
-                style =
-                    MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium
             )
 
             Spacer(
@@ -163,15 +143,12 @@ fun BookRow(
             )
 
             Row {
-
                 book.files.forEach { bookFile ->
-
                     Button(
                         onClick = {
-
                             android.util.Log.d(
                                 "CalibreReader",
-                                "FORMAT gedrückt: ${book.title} / ${bookFile.format}"
+                                "FORMAT pressed: ${book.title} / ${bookFile.format}"
                             )
 
                             onOpenBook(
@@ -179,12 +156,10 @@ fun BookRow(
                                 bookFile
                             )
                         },
-                        modifier =
-                            Modifier.padding(
-                                end = 6.dp
-                            )
+                        modifier = Modifier.padding(
+                            end = 6.dp
+                        )
                     ) {
-
                         Text(
                             bookFile.format
                         )

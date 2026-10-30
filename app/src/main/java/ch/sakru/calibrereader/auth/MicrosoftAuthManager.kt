@@ -50,7 +50,7 @@ class MicrosoftAuthManager(
 
                 override fun onError(exception: MsalException) {
                     initialized.completeExceptionally(exception)
-                    _initializationError.value = "Die Microsoft-Anmeldung ist momentan nicht verfügbar."
+                    _initializationError.value = "Microsoft sign-in is currently unavailable."
                     onInitializationError(exception)
                 }
             }
