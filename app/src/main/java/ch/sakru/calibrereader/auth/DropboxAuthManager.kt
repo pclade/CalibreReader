@@ -28,7 +28,7 @@ class DropboxAuthManager(
     @Volatile private var client: DbxClientV2? = null
 
     fun requireClient(): DbxClientV2 =
-        client ?: error("Bitte zuerst mit Dropbox verbinden.")
+        client ?: error("Connect to Dropbox first.")
 
     fun startSignIn(activity: Activity) {
         check(isConfigured) { "Dropbox ist in dieser App-Version noch nicht eingerichtet." }
@@ -62,7 +62,7 @@ class DropboxAuthManager(
             revision = ++sessionRevision
         }
         check(credential.appKey == appKey && !credential.refreshToken.isNullOrBlank()) {
-            "Dropbox hat keine vollständige Anmeldung zurückgegeben. Bitte erneut verbinden."
+            "Dropbox did not return a complete sign-in. Please connect again."
         }
         return withContext(Dispatchers.IO) {
             currentCoroutineContext().ensureActive()
