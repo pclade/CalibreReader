@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calibre Reader</string>
+    <string name="product_name">Calibre To Go</string>
+    <string name="provider_question">Calibre kitaplığınız nerede?</string>
+    <string name="connect_onedrive">OneDrive’a bağlan</string>
+    <string name="connect_dropbox">Dropbox’a bağlan</string>
+    <string name="dropbox_not_configured">Dropbox bu test sürümünde henüz yapılandırılmadı.</string>
+    <string name="connect_google_drive">Google Drive’a bağlan</string>
+    <string name="read_only_note">Kitaplıklarınıza yalnızca okuma erişimi sağlanır.</string>
+    <string name="cancel">İptal</string>
+    <string name="change_storage">Depolama alanını değiştir</string>
+    <string name="sign_out">Oturumu kapat</string>
+    <string name="my_libraries">Kitaplıklarım</string>
+    <string name="no_saved_library">Bu hesap için henüz kayıtlı bir kitaplık yok.</string>
+    <string name="add_library">Kitaplık ekle</string>
+    <string name="back">Geri</string>
+    <string name="retry">Tekrar dene</string>
+    <string name="calibre_library_detected">Calibre kitaplığı algılandı</string>
+    <string name="use_this_library">Bu kitaplığı kullan</string>
+    <string name="libraries">Kitaplıklar</string>
+    <string name="my_library">Kitaplığım</string>
+    <string name="books_count">%1$d kitap</string>
+    <string name="books_filtered_count">%1$d / %2$d kitap</string>
+    <string name="sort_prefix">Sırala: %1$s</string>
+    <string name="search_label">Ara</string>
+    <string name="search_hint">Başlık veya yazar</string>
+    <string name="sort_title_asc">Başlık A–Z</string>
+    <string name="sort_title_desc">Başlık Z–A</string>
+    <string name="sort_author_asc">Yazar A–Z</string>
+    <string name="sort_author_desc">Yazar Z–A</string>
+    <string name="cover_of">%1$s kapağı</string>
+    <string name="open_book_with">Kitabı şununla aç</string>
+    <string name="book_directory_error">Kitap klasörü oluşturulamadı.</string>
+    <string name="feedback">Geri bildirim ve istekler</string>
+    <string name="language_button">Dil: %1$s</string>
+    <string name="saved_libraries_load_error">Kayıtlı kitaplıklar yüklenemedi.</string>
+    <string name="book_open_error">Kitap açılamadı.</string>
+    <string name="microsoft_signin_failed">Microsoft oturum açma işlemi başarısız oldu. Lütfen tekrar deneyin.</string>
+    <string name="signin_cancelled">Oturum açma iptal edildi.</string>
+    <string name="dropbox_signin_start_failed">Dropbox oturum açma işlemi başlatılamadı.</string>
+    <string name="google_signin_open_failed">Google oturum açma ekranı açılamadı.</string>
+    <string name="google_signin_cancelled">Google oturum açma iptal edildi. Lütfen tekrar bağlanın.</string>
+</resources>
