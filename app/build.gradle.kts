@@ -23,7 +23,7 @@ val dropboxAppKey = providers.gradleProperty("DROPBOX_APP_KEY")
 
 val feedbackUrl = providers.gradleProperty("FEEDBACK_URL")
     .orElse(providers.environmentVariable("FEEDBACK_URL"))
-    .getOrElse(localConfiguration.getProperty("FEEDBACK_URL", ""))
+    .getOrElse(localConfiguration.getProperty("FEEDBACK_URL", "https://feedback.sakru.ch/"))
     .trim()
 
 require(dropboxAppKey.isEmpty() || dropboxAppKey.matches(Regex("[A-Za-z0-9]+"))) {
