@@ -12,12 +12,26 @@ val localConfiguration = Properties().apply {
         configurationFile.inputStream().use { load(it) }
     }
 }
+
+fun buildConfigString(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
 val dropboxAppKey = providers.gradleProperty("DROPBOX_APP_KEY")
     .orElse(providers.environmentVariable("DROPBOX_APP_KEY"))
     .getOrElse(localConfiguration.getProperty("DROPBOX_APP_KEY", ""))
     .trim()
+
+val feedbackUrl = providers.gradleProperty("FEEDBACK_URL")
+    .orElse(providers.environmentVariable("FEEDBACK_URL"))
+    .getOrElse(localConfiguration.getProperty("FEEDBACK_URL", ""))
+    .trim()
+
 require(dropboxAppKey.isEmpty() || dropboxAppKey.matches(Regex("[A-Za-z0-9]+"))) {
     "DROPBOX_APP_KEY must contain only letters and numbers."
+}
+
+require(feedbackUrl.isEmpty() || feedbackUrl.startsWith("https://")) {
+    "FEEDBACK_URL must be empty or use HTTPS."
 }
 
 android {
@@ -30,7 +44,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "DROPBOX_APP_KEY", "\"" + dropboxAppKey + "\"")
+        buildConfigField("String", "DROPBOX_APP_KEY", buildConfigString(dropboxAppKey))
+        buildConfigField("String", "FEEDBACK_URL", buildConfigString(feedbackUrl))
         manifestPlaceholders["dropboxRedirectScheme"] =
             if (dropboxAppKey.isEmpty()) "db-unconfigured" else "db-" + dropboxAppKey
         manifestPlaceholders["dropboxEnabled"] = dropboxAppKey.isNotEmpty().toString()
