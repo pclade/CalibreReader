@@ -118,7 +118,7 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
             } catch (error: Exception) {
                 authenticationFailed(generation, provider,
                     if (provider == StorageProvider.GOOGLE_DRIVE && !error.message.isNullOrBlank()) error.message!!
-                    else "Die Verbindung konnte nicht hergestellt werden. Bitte Internetverbindung prüfen und erneut versuchen.")
+                    else "The connection could not be established. Check your internet connection and try again.")
             }
         }
     }
@@ -133,13 +133,13 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
             try {
                 val user = finish()
                 if (user != null) completeAuthentication(generation, provider, user)
-                else if (!keepPending) authenticationFailed(generation, provider, "Anmeldung abgebrochen. Bitte erneut verbinden.")
+                else if (!keepPending) authenticationFailed(generation, provider, "Sign-in was cancelled. Please connect again.")
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
                 authenticationFailed(generation, provider,
                     if (provider == StorageProvider.GOOGLE_DRIVE && !error.message.isNullOrBlank()) error.message!!
-                    else "Die Anmeldung konnte nicht abgeschlossen werden. Bitte erneut verbinden.")
+                    else "Sign-in could not be completed. Please connect again.")
             }
         }
     }
@@ -154,7 +154,7 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                authenticationFailed(generation, provider, "Abmelden fehlgeschlagen. Bitte erneut versuchen.")
+                authenticationFailed(generation, provider, "Sign-out failed. Please try again.")
             }
         }
     }
@@ -271,7 +271,7 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
     ) {
         if (library.provider != sessionState.value.activeProvider ||
             library.account != sessionState.value.accountId) {
-            setError("Diese Bibliothek gehört zu einem anderen Cloud-Konto.")
+            setError("This library belongs to a different cloud account.")
             return
         }
         loadLibrary(library, cloudStorage, cacheDirectory, loadBooks, null)
@@ -291,7 +291,7 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
             try {
                 val metadata = cloudStorage.listChildren(library.storageRootId).firstOrNull {
                     !it.isFolder && it.name.equals("metadata.db", true)
-                } ?: error("metadata.db wurde in dieser Bibliothek nicht gefunden.")
+                } ?: error("metadata.db was not found in this library.")
                 val data = cloudStorage.downloadFile(metadata.id)
                 ensureActive()
                 val books = withContext(ioDispatcher) {
@@ -349,7 +349,7 @@ class CalibreViewModel(private val ioDispatcher: CoroutineDispatcher = Dispatche
         downloadJob = viewModelScope.launch {
             try {
                 val extension = bookFile.format.lowercase()
-                require(extension.matches(Regex("[a-z0-9_-]+"))) { "Ungültiges Buchformat." }
+                require(extension.matches(Regex("[a-z0-9_-]+"))) { "Invalid book format." }
                 val bytes = cloudStorage.downloadFileByPath(
                     identity.rootFolderId, book.path + "/" + bookFile.name + "." + extension
                 )
