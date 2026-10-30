@@ -3,6 +3,7 @@ package ch.sakru.calibrereader.platform
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import ch.sakru.calibrereader.R
 import ch.sakru.calibrereader.model.DownloadedBook
 import ch.sakru.calibrereader.model.LibraryIdentity
 import java.io.File
@@ -30,7 +31,6 @@ class BookOpener(
     ) {
         val localFile =
             withContext(Dispatchers.IO) {
-
                 val booksDirectory =
                     File(
                         context.filesDir,
@@ -42,10 +42,15 @@ class BookOpener(
                 val file =
                     File(
                         booksDirectory,
-                        downloadedBookRelativePath(libraryIdentity, downloadedBook.bookId, downloadedBook.extension)
+                        downloadedBookRelativePath(
+                            libraryIdentity,
+                            downloadedBook.bookId,
+                            downloadedBook.extension
+                        )
                     )
+
                 check(file.parentFile!!.isDirectory || file.parentFile!!.mkdirs()) {
-                    "Das Buchverzeichnis konnte nicht angelegt werden."
+                    context.getString(R.string.book_directory_error)
                 }
 
                 file.writeBytes(
@@ -77,22 +82,15 @@ class BookOpener(
 
         val mimeType =
             when (extension.lowercase()) {
-
-                "pdf" ->
-                    "application/pdf"
-
-                "epub" ->
-                    "application/epub+zip"
-
-                else ->
-                    "application/octet-stream"
+                "pdf" -> "application/pdf"
+                "epub" -> "application/epub+zip"
+                else -> "application/octet-stream"
             }
 
         val intent =
             Intent(
                 Intent.ACTION_VIEW
             ).apply {
-
                 setDataAndType(
                     uri,
                     mimeType
@@ -106,7 +104,7 @@ class BookOpener(
         context.startActivity(
             Intent.createChooser(
                 intent,
-                "Buch öffnen mit"
+                context.getString(R.string.open_book_with)
             ).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK
