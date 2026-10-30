@@ -40,7 +40,7 @@ class GoogleDriveAuthManager(
     val consent = _consent.asStateFlow()
 
     fun requireClient(): GoogleDriveApi = synchronized(lock) {
-        client ?: error("Bitte zuerst mit Google Drive verbinden.")
+        client ?: error("Connect to Google Drive first.")
     }
 
     suspend fun restoreSession(): AuthenticatedUser? = withContext(ioDispatcher) {
@@ -84,7 +84,7 @@ class GoogleDriveAuthManager(
                 _consent.value = null
                 value
             }
-            check(grant is GoogleDriveGrant.Granted) { "Die Google-Anmeldung ist noch nicht abgeschlossen." }
+            check(grant is GoogleDriveGrant.Granted) { "Google sign-in has not finished yet." }
             connect(grant, attempt, pending.expectedAccount)
         }
 
@@ -131,7 +131,7 @@ class GoogleDriveAuthManager(
         currentCoroutineContext().ensureActive()
         checkCurrent(attempt)
         if (expected != null && account.permissionId != expected.permissionId) {
-            throw IOException("Google hat ein anderes Konto verwendet. Bitte abmelden und erneut verbinden.")
+            throw IOException("Google used a different account. Please sign out and connect again.")
         }
         val connected = apiFactory.create(object : GoogleDriveTokens {
             override suspend fun accessToken(): String {
@@ -140,7 +140,7 @@ class GoogleDriveAuthManager(
                 currentCoroutineContext().ensureActive()
                 checkCurrent(attempt)
                 if (renewed !is GoogleDriveGrant.Granted) {
-                    throw IOException("Der Google-Drive-Zugriff muss erneut bestätigt werden. Bitte erneut verbinden.")
+                    throw IOException("Google Drive access must be confirmed again. Please reconnect.")
                 }
                 validate(renewed)
                 return renewed.token
@@ -160,7 +160,7 @@ class GoogleDriveAuthManager(
 
     private fun validate(grant: GoogleDriveGrant.Granted) {
         if (grant.token.isBlank() || GOOGLE_DRIVE_READONLY_SCOPE !in grant.scopes) {
-            throw IOException("Google Drive benötigt die Leseberechtigung für die Calibre-Bibliothek. Bitte erneut verbinden und den Zugriff erlauben.")
+            throw IOException("Google Drive needs read access to the Calibre library. Please reconnect and allow access.")
         }
     }
 
