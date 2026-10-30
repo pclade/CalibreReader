@@ -5,7 +5,7 @@ compatibility_date = "2026-10-30"
 [vars]
 TURNSTILE_SITE_KEY = "0x4AAAAAAFsqnglaXobhBe90"
 GITHUB_REPO = "pclade/CalibreReader"
-EXPECTED_HOSTNAME = ""
+EXPECTED_HOSTNAME = "feedback.sakru.ch"
 
 [[ratelimits]]
 name = "FEEDBACK_RATE_LIMITER"
