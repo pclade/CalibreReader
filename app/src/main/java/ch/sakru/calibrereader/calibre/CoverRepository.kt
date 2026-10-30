@@ -1,67 +1,55 @@
 package ch.sakru.calibrereader.calibre
 
 import ch.sakru.calibrereader.model.Book
+import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.storage.CloudStorage
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
 
-/**
- * Loads and caches Calibre book covers.
- */
-class CoverRepository {
+/** Bounded cover cache, isolated by provider, account, library and book. */
+class CoverRepository(private val maxBytes: Int = 16 * 1024 * 1024) {
+    private data class CoverKey(val library: LibraryIdentity, val bookId: Long)
+    private val memoryCache = LinkedHashMap<CoverKey, ByteArray>(16, 0.75f, true)
+    private var byteCount = 0
 
-    private val memoryCache =
-        ConcurrentHashMap<Long, ByteArray>()
+    @Synchronized
+    fun getCachedCover(libraryIdentity: LibraryIdentity, bookId: Long): ByteArray? =
+        memoryCache[CoverKey(libraryIdentity, bookId)]
 
-    /**
-     * Returns a cached cover if available.
-     */
-    fun getCachedCover(
-        bookId: Long
-    ): ByteArray? =
-        memoryCache[bookId]
-
-    /**
-     * Loads a cover from the selected cloud storage.
-     *
-     * @param book book whose cover should be loaded.
-     * @param rootFolderId root folder of the active Calibre library.
-     * @param cloudStorage active cloud storage implementation.
-     */
     suspend fun loadCover(
         book: Book,
-        rootFolderId: String,
+        libraryIdentity: LibraryIdentity,
         cloudStorage: CloudStorage
     ): ByteArray? {
-
-        memoryCache[book.id]?.let {
-            return it
-        }
-
+        getCachedCover(libraryIdentity, book.id)?.let { return it }
         return try {
-
-            val coverPath =
-                "${book.path}/cover.jpg"
-
-            val bytes =
-                cloudStorage.downloadFileByPath(
-                    rootId = rootFolderId,
-                    relativePath = coverPath
-                )
-
-            memoryCache[book.id] =
-                bytes
-
-            bytes
-
-        } catch (e: Exception) {
-
-            android.util.Log.e(
-                "CalibreReader",
-                "Cover not loaded: ${book.title}",
-                e
+            val bytes = cloudStorage.downloadFileByPath(
+                libraryIdentity.rootFolderId, book.path + "/cover.jpg"
             )
-
+            cache(CoverKey(libraryIdentity, book.id), bytes)
+            bytes
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
             null
+        }
+    }
+
+    @Synchronized
+    fun clear() {
+        memoryCache.clear()
+        byteCount = 0
+    }
+
+    @Synchronized
+    private fun cache(key: CoverKey, bytes: ByteArray) {
+        if (bytes.size > maxBytes) return
+        memoryCache.remove(key)?.let { byteCount -= it.size }
+        memoryCache[key] = bytes
+        byteCount += bytes.size
+        val iterator = memoryCache.entries.iterator()
+        while (byteCount > maxBytes && iterator.hasNext()) {
+            byteCount -= iterator.next().value.size
+            iterator.remove()
         }
     }
 }

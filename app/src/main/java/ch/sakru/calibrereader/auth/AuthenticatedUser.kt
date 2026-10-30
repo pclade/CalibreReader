@@ -8,5 +8,6 @@ package ch.sakru.calibrereader.auth
  * @property userName display or account name of the authenticated user.
  */
 data class AuthenticatedUser(
-    val userName: String
+    val userName: String,
+    val accountId: String = userName
 )

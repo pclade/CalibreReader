@@ -9,6 +9,8 @@ package ch.sakru.calibrereader.storage
  * CalibreReader intentionally exposes read-only operations only.
  */
 interface CloudStorage {
+    /** Provider-specific root identifier, also used for libraries at the storage root. */
+    val rootFolderId: String
 
     /**
      * Returns the direct children of a folder.

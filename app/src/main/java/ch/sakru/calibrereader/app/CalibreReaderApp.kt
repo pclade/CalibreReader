@@ -2,14 +2,25 @@ package ch.sakru.calibrereader.app
 
 import android.content.Context
 import ch.sakru.calibrereader.auth.AuthSession
+import ch.sakru.calibrereader.auth.DropboxAuthManager
+import ch.sakru.calibrereader.auth.DropboxCredentialStore
+import ch.sakru.calibrereader.auth.GoogleDriveAccountStore
+import ch.sakru.calibrereader.auth.GoogleDriveAuthManager
+import ch.sakru.calibrereader.auth.GooglePlayDriveAuthorization
+import ch.sakru.calibrereader.auth.MicrosoftAuthManager
 import ch.sakru.calibrereader.calibre.CalibreRepository
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.calibre.LibraryStorage
-import ch.sakru.calibrereader.onedrive.GraphClient
-import ch.sakru.calibrereader.storage.onedrive.OneDriveStorage
-import ch.sakru.calibrereader.platform.BookOpener
 import ch.sakru.calibrereader.model.StorageProvider
+import ch.sakru.calibrereader.onedrive.GraphClient
+import ch.sakru.calibrereader.platform.BookOpener
+import ch.sakru.calibrereader.platform.FeedbackOpener
 import ch.sakru.calibrereader.storage.StorageFactory
+import ch.sakru.calibrereader.storage.dropbox.DropboxStorage
+import ch.sakru.calibrereader.storage.googledrive.GoogleDriveApiFactory
+import ch.sakru.calibrereader.storage.googledrive.GoogleDriveClient
+import ch.sakru.calibrereader.storage.googledrive.GoogleDriveStorage
+import ch.sakru.calibrereader.storage.onedrive.OneDriveStorage
 
 /**
  * Application composition root.
@@ -21,33 +32,20 @@ import ch.sakru.calibrereader.storage.StorageFactory
 class CalibreReaderApp(
     context: Context
 ) {
-
-    /**
-     * Current authentication session.
-     */
     val authSession =
         AuthSession()
 
-    /**
-     * Persistent application settings and saved libraries.
-     */
     val libraryStorage =
         LibraryStorage(
             context.applicationContext
         )
 
-    /**
-     * Calibre metadata repository.
-     */
     val calibreRepository =
         CalibreRepository()
 
     private val graphClient =
         GraphClient()
 
-    /**
-     * OneDrive cloud storage implementation.
-     */
     val oneDriveStorage =
         OneDriveStorage(
             graphClient = graphClient,
@@ -55,22 +53,56 @@ class CalibreReaderApp(
                 authSession.accessToken
             }
         )
+
+    val dropboxAuthManager =
+        DropboxAuthManager(
+            DropboxCredentialStore(context.applicationContext)
+        )
+
+    val microsoftAuthManager =
+        MicrosoftAuthManager(
+            context.applicationContext,
+            authSession
+        )
+
+    val googleDriveAuthorization =
+        GooglePlayDriveAuthorization(
+            context.applicationContext
+        )
+
+    val googleDriveAuthManager =
+        GoogleDriveAuthManager(
+            googleDriveAuthorization,
+            GoogleDriveAccountStore(context.applicationContext),
+            GoogleDriveApiFactory {
+                GoogleDriveClient(it)
+            }
+        )
+
     val storageFactory =
         StorageFactory(
             storages =
                 mapOf(
-                    StorageProvider.ONEDRIVE to oneDriveStorage
+                    StorageProvider.ONEDRIVE to oneDriveStorage,
+                    StorageProvider.DROPBOX to DropboxStorage(
+                        dropboxAuthManager::requireClient
+                    ),
+                    StorageProvider.GOOGLE_DRIVE to GoogleDriveStorage(
+                        googleDriveAuthManager::requireClient
+                    )
                 )
         )
 
-    /**
-     * Provider-neutral book cover repository.
-     */
     val coverRepository =
         CoverRepository()
 
     val bookOpener =
         BookOpener(
+            context.applicationContext
+        )
+
+    val feedbackOpener =
+        FeedbackOpener(
             context.applicationContext
         )
 }

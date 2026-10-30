@@ -1,4 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Calibre Reader</string>
+    <string name="product_name">Calibre To Go</string>
+    <string name="provider_question">Where is your Calibre library stored?</string>
+    <string name="connect_onedrive">Connect to OneDrive</string>
+    <string name="connect_dropbox">Connect to Dropbox</string>
+    <string name="dropbox_not_configured">Dropbox is not configured in this test build yet.</string>
+    <string name="connect_google_drive">Connect to Google Drive</string>
+    <string name="read_only_note">Your libraries are accessed read-only.</string>
+    <string name="cancel">Cancel</string>
+    <string name="change_storage">Change storage</string>
+    <string name="sign_out">Sign out</string>
+    <string name="my_libraries">My libraries</string>
+    <string name="no_saved_library">No library has been saved for this account yet.</string>
+    <string name="add_library">Add library</string>
+    <string name="back">Back</string>
+    <string name="retry">Try again</string>
+    <string name="calibre_library_detected">Calibre library detected</string>
+    <string name="use_this_library">Use this library</string>
+    <string name="libraries">Libraries</string>
+    <string name="my_library">My library</string>
+    <string name="books_count">%1$d books</string>
+    <string name="books_filtered_count">%1$d of %2$d books</string>
+    <string name="sort_prefix">Sort: %1$s</string>
+    <string name="search_label">Search</string>
+    <string name="search_hint">Title or author</string>
+    <string name="sort_title_asc">Title A–Z</string>
+    <string name="sort_title_desc">Title Z–A</string>
+    <string name="sort_author_asc">Author A–Z</string>
+    <string name="sort_author_desc">Author Z–A</string>
+    <string name="cover_of">Cover of %1$s</string>
+    <string name="open_book_with">Open book with</string>
+    <string name="book_directory_error">The book directory could not be created.</string>
+    <string name="feedback">Feedback &amp; requests</string>
+    <string name="language_button">Language: %1$s</string>
+    <string name="saved_libraries_load_error">Saved libraries could not be loaded.</string>
+    <string name="book_open_error">The book could not be opened.</string>
+    <string name="microsoft_signin_failed">Microsoft sign-in failed. Please try again.</string>
+    <string name="signin_cancelled">Sign-in cancelled.</string>
+    <string name="dropbox_signin_start_failed">Dropbox sign-in could not be started.</string>
+    <string name="google_signin_open_failed">Google sign-in could not be opened.</string>
+    <string name="google_signin_cancelled">Google sign-in cancelled. Please connect again.</string>
+    <string name="more_options">More</string>
+    <string name="privacy_policy">Privacy Policy</string>
 </resources>
