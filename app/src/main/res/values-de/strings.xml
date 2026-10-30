@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calibre Reader</string>
+    <string name="product_name">Calibre To Go</string>
+    <string name="provider_question">Wo liegt deine Calibre-Bibliothek?</string>
+    <string name="connect_onedrive">Mit OneDrive verbinden</string>
+    <string name="connect_dropbox">Mit Dropbox verbinden</string>
+    <string name="dropbox_not_configured">Dropbox ist in dieser Testversion noch nicht eingerichtet.</string>
+    <string name="connect_google_drive">Mit Google Drive verbinden</string>
+    <string name="read_only_note">Deine Bibliotheken werden nur gelesen.</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="change_storage">Speicher wechseln</string>
+    <string name="sign_out">Abmelden</string>
+    <string name="my_libraries">Meine Bibliotheken</string>
+    <string name="no_saved_library">Für dieses Konto ist noch keine Bibliothek gespeichert.</string>
+    <string name="add_library">Bibliothek hinzufügen</string>
+    <string name="back">Zurück</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="calibre_library_detected">Calibre-Bibliothek erkannt</string>
+    <string name="use_this_library">Diese Bibliothek verwenden</string>
+    <string name="libraries">Bibliotheken</string>
+    <string name="my_library">Meine Bibliothek</string>
+    <string name="books_count">%1$d Bücher</string>
+    <string name="books_filtered_count">%1$d von %2$d Büchern</string>
+    <string name="sort_prefix">Sortieren: %1$s</string>
+    <string name="search_label">Suchen</string>
+    <string name="search_hint">Titel oder Autor</string>
+    <string name="sort_title_asc">Titel A–Z</string>
+    <string name="sort_title_desc">Titel Z–A</string>
+    <string name="sort_author_asc">Autor A–Z</string>
+    <string name="sort_author_desc">Autor Z–A</string>
+    <string name="cover_of">Cover von %1$s</string>
+    <string name="open_book_with">Buch öffnen mit</string>
+    <string name="book_directory_error">Das Buchverzeichnis konnte nicht angelegt werden.</string>
+    <string name="feedback">Feedback &amp; Wünsche</string>
+    <string name="language_button">Sprache: %1$s</string>
+    <string name="saved_libraries_load_error">Die gespeicherten Bibliotheken konnten nicht geladen werden.</string>
+    <string name="book_open_error">Das Buch konnte nicht geöffnet werden.</string>
+    <string name="microsoft_signin_failed">Die Microsoft-Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.</string>
+    <string name="signin_cancelled">Anmeldung abgebrochen.</string>
+    <string name="dropbox_signin_start_failed">Die Dropbox-Anmeldung konnte nicht gestartet werden.</string>
+    <string name="google_signin_open_failed">Die Google-Anmeldung konnte nicht geöffnet werden.</string>
+    <string name="google_signin_cancelled">Google-Anmeldung abgebrochen. Bitte erneut verbinden.</string>
+</resources>
