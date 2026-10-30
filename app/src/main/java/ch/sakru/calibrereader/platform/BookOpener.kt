@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import ch.sakru.calibrereader.R
+import ch.sakru.calibrereader.i18n.LanguageManager
 import ch.sakru.calibrereader.model.DownloadedBook
 import ch.sakru.calibrereader.model.LibraryIdentity
 import java.io.File
