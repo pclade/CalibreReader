@@ -1,6 +1,5 @@
 package ch.sakru.calibrereader.ui.library
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,11 +25,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import ch.sakru.calibrereader.R
 import ch.sakru.calibrereader.calibre.CoverRepository
 import ch.sakru.calibrereader.model.Book
-import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.BookFile
+import ch.sakru.calibrereader.model.LibraryIdentity
 import ch.sakru.calibrereader.model.LibrarySortMode
 import ch.sakru.calibrereader.model.LibraryViewMode
 import ch.sakru.calibrereader.storage.CloudStorage
@@ -61,10 +62,7 @@ fun LibraryScreen(
     errorMessage: String?,
     onBack: () -> Unit
 ) {
-    var sortMenuExpanded by
-    remember {
-        mutableStateOf(false)
-    }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier =
@@ -72,70 +70,67 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .padding(16.dp)
     ) {
+        TextButton(onClick = onBack) {
+            Text(stringResource(R.string.libraries))
+        }
 
-        TextButton(onClick = onBack) { Text("Bibliotheken") }
-        if (isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (isLoading) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+
+        errorMessage?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            // Title and number of books
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-
                 Text(
-                    text = "Meine Bibliothek",
+                    text = stringResource(R.string.my_library),
                     style = MaterialTheme.typography.headlineMedium
                 )
 
                 Text(
                     text =
                         if (searchQuery.isBlank()) {
-                            "$totalBookCount Bücher"
+                            stringResource(R.string.books_count, totalBookCount)
                         } else {
-                            "$visibleBookCount von $totalBookCount Büchern"
+                            stringResource(
+                                R.string.books_filtered_count,
+                                visibleBookCount,
+                                totalBookCount
+                            )
                         }
                 )
             }
 
-            // Sort selection
             Box {
+                val currentSortLabel = sortModeLabel(sortMode)
 
                 TextButton(
-                    onClick = {
-                        sortMenuExpanded = true
-                    }
+                    onClick = { sortMenuExpanded = true }
                 ) {
                     Text(
-                        text = "Sort: ${sortMode.displayName}"
+                        stringResource(
+                            R.string.sort_prefix,
+                            currentSortLabel
+                        )
                     )
                 }
 
                 DropdownMenu(
                     expanded = sortMenuExpanded,
-                    onDismissRequest = {
-                        sortMenuExpanded = false
-                    }
+                    onDismissRequest = { sortMenuExpanded = false }
                 ) {
-
                     LibrarySortMode.entries.forEach { mode ->
-
                         DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = mode.displayName
-                                )
-                            },
+                            text = { Text(sortModeLabel(mode)) },
                             onClick = {
-
-                                onSortModeChange(
-                                    mode
-                                )
-
+                                onSortModeChange(mode)
                                 sortMenuExpanded = false
                             }
                         )
@@ -143,11 +138,8 @@ fun LibraryScreen(
                 }
             }
 
-            Spacer(
-                modifier = Modifier.width(8.dp)
-            )
+            Spacer(Modifier.width(8.dp))
 
-            // List view
             Button(
                 onClick = {
                     onViewModeChange(
@@ -158,11 +150,8 @@ fun LibraryScreen(
                 Text("☷")
             }
 
-            Spacer(
-                modifier = Modifier.width(8.dp)
-            )
+            Spacer(Modifier.width(8.dp))
 
-            // Grid view
             Button(
                 onClick = {
                     onViewModeChange(
@@ -174,9 +163,7 @@ fun LibraryScreen(
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
+        Spacer(Modifier.height(8.dp))
 
         OutlinedTextField(
             value = searchQuery,
@@ -185,14 +172,13 @@ fun LibraryScreen(
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium,
             label = {
-                Text("Search")
+                Text(stringResource(R.string.search_label))
             },
             placeholder = {
-                Text("Title or author")
+                Text(stringResource(R.string.search_hint))
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-
                     IconButton(
                         onClick = {
                             onSearchQueryChange("")
@@ -204,14 +190,10 @@ fun LibraryScreen(
             }
         )
 
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
+        Spacer(Modifier.height(16.dp))
 
         when (viewMode) {
-
             LibraryViewMode.LIST -> {
-
                 LibraryList(
                     books = books,
                     libraryIdentity = libraryIdentity,
@@ -222,7 +204,6 @@ fun LibraryScreen(
             }
 
             LibraryViewMode.GRID -> {
-
                 LibraryGrid(
                     books = books,
                     libraryIdentity = libraryIdentity,
@@ -234,3 +215,16 @@ fun LibraryScreen(
         }
     }
 }
+
+@Composable
+private fun sortModeLabel(
+    mode: LibrarySortMode
+): String =
+    stringResource(
+        when (mode) {
+            LibrarySortMode.TITLE_ASC -> R.string.sort_title_asc
+            LibrarySortMode.TITLE_DESC -> R.string.sort_title_desc
+            LibrarySortMode.AUTHOR_ASC -> R.string.sort_author_asc
+            LibrarySortMode.AUTHOR_DESC -> R.string.sort_author_desc
+        }
+    )
