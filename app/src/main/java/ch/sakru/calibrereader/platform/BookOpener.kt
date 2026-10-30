@@ -50,7 +50,7 @@ class BookOpener(
                     )
 
                 check(file.parentFile!!.isDirectory || file.parentFile!!.mkdirs()) {
-                    context.getString(R.string.book_directory_error)
+                    LanguageManager.wrap(context).getString(R.string.book_directory_error)
                 }
 
                 file.writeBytes(
@@ -104,7 +104,7 @@ class BookOpener(
         context.startActivity(
             Intent.createChooser(
                 intent,
-                context.getString(R.string.open_book_with)
+                LanguageManager.wrap(context).getString(R.string.open_book_with)
             ).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK
