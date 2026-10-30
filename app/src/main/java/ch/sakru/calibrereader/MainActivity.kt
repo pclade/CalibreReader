@@ -1,9 +1,8 @@
 package ch.sakru.calibrereader
 
 import android.app.Activity
-import android.content.Context
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResult
@@ -39,7 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val calibreViewModel: CalibreViewModel by viewModels()
     private lateinit var app: CalibreReaderApp
 
@@ -49,14 +48,9 @@ class MainActivity : ComponentActivity() {
             ::finishGoogleAuthorization
         )
 
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(
-            LanguageManager.wrap(newBase)
-        )
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LanguageManager.migrateLegacyLanguage(this)
 
         app =
             (application as CalibreReaderApplication).services
@@ -380,19 +374,7 @@ class MainActivity : ComponentActivity() {
     private fun changeLanguage(
         language: AppLanguage
     ) {
-        if (
-            LanguageManager.current(this) ==
-            language
-        ) {
-            return
-        }
-
-        LanguageManager.setLanguage(
-            this,
-            language
-        )
-
-        recreate()
+        LanguageManager.setLanguage(language)
     }
 
     private fun selectProvider(

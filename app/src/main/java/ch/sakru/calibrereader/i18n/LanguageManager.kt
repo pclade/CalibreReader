@@ -1,50 +1,51 @@
 package ch.sakru.calibrereader.i18n
 
 import android.content.Context
-import android.content.res.Configuration
-import java.util.Locale
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 
-/**
- * Persists and applies the explicitly selected application language.
- *
- * English is used for new installations. The selected language is independent
- * of the Android system language so users can change it inside the app.
- */
+/** AppCompat owns the language; legacy preferences are read only during migration. */
 object LanguageManager {
     private const val PREFERENCES_NAME = "calibre_language"
     private const val KEY_LANGUAGE = "language"
+    private const val KEY_MIGRATED = "appcompat_migrated"
 
     fun current(context: Context): AppLanguage {
-        val tag = context
-            .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_LANGUAGE, AppLanguage.ENGLISH.languageTag)
-
-        return AppLanguage.fromLanguageTag(tag)
+        val locale = AppCompatDelegate.getApplicationLocales()[0]
+            ?: context.resources.configuration.locales[0]
+        return AppLanguage.fromLanguageTag(locale.language)
     }
 
-    fun setLanguage(
-        context: Context,
-        language: AppLanguage
-    ) {
-        context
-            .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_LANGUAGE, language.languageTag)
-            .apply()
+    fun setLanguage(language: AppLanguage) {
+        AppCompatDelegate.setApplicationLocales(
+            LocaleListCompat.forLanguageTags(language.languageTag)
+        )
     }
 
-    fun wrap(baseContext: Context): Context {
-        val language = current(baseContext)
-        val locale = Locale.forLanguageTag(language.languageTag)
+    /** Call after Activity.onCreate, when AppCompat has restored its stored locales. */
+    fun migrateLegacyLanguage(context: Context) {
+        val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+        if (preferences.getBoolean(KEY_MIGRATED, false)) return
 
-        Locale.setDefault(locale)
+        languageToMigrate(
+            alreadyMigrated = false,
+            hasOfficialLanguage = !AppCompatDelegate.getApplicationLocales().isEmpty,
+            legacyTag = preferences.getString(KEY_LANGUAGE, null)
+        )?.let(::setLanguage)
 
-        val configuration =
-            Configuration(baseContext.resources.configuration).apply {
-                setLocale(locale)
-                setLayoutDirection(locale)
-            }
+        // Never replay a legacy selection after a later reset to the system language.
+        check(preferences.edit().remove(KEY_LANGUAGE).putBoolean(KEY_MIGRATED, true).commit()) {
+            "The language migration could not be saved."
+        }
+    }
 
-        return baseContext.createConfigurationContext(configuration)
+    internal fun languageToMigrate(
+        alreadyMigrated: Boolean,
+        hasOfficialLanguage: Boolean,
+        legacyTag: String?
+    ): AppLanguage? {
+        if (alreadyMigrated || hasOfficialLanguage) return null
+        // Preserve the previous English default as well as explicit saved selections.
+        return AppLanguage.fromLanguageTag(legacyTag)
     }
 }
