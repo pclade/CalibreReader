@@ -48,8 +48,8 @@ class GooglePlayDriveAuthorization(context: Context) : GoogleDriveAuthorization 
                 CommonStatusCodes.DEVELOPER_ERROR ->
                     "Google Drive ist in dieser App-Version noch nicht korrekt eingerichtet."
                 CommonStatusCodes.NETWORK_ERROR ->
-                    "Google Drive ist nicht erreichbar. Bitte Internetverbindung prüfen."
-                else -> "Die Google-Drive-Anmeldung ist fehlgeschlagen. Bitte erneut verbinden."
+                    "Google Drive is unavailable. Check your internet connection."
+                else -> "Google Drive sign-in failed. Please reconnect."
             }
             throw IOException(message, error)
         }
@@ -69,7 +69,7 @@ class GooglePlayDriveAuthorization(context: Context) : GoogleDriveAuthorization 
 
     private fun AuthorizationResult.toGrant(): GoogleDriveGrant =
         if (hasResolution()) GoogleDriveGrant.Consent(
-            pendingIntent ?: throw IOException("Die Google-Anmeldung konnte nicht geöffnet werden.")
+            pendingIntent ?: throw IOException("Google sign-in could not be opened.")
         ) else GoogleDriveGrant.Granted(
             accessToken ?: throw IOException("Google hat keinen Zugriffstoken zurückgegeben."),
             grantedScopes.toSet()
