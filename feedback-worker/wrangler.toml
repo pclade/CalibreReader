@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-10-30"
 
 [vars]
-TURNSTILE_SITE_KEY = "REPLACE_WITH_TURNSTILE_SITE_KEY"
+TURNSTILE_SITE_KEY = "0x4AAAAAAFsqnglaXobhBe90"
 GITHUB_REPO = "pclade/CalibreReader"
 EXPECTED_HOSTNAME = ""
 
