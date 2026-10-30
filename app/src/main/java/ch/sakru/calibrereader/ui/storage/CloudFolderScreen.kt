@@ -18,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import ch.sakru.calibrereader.R
 import ch.sakru.calibrereader.storage.CloudItem
 
 @Composable
@@ -36,7 +38,7 @@ fun CloudFolderScreen(
     onRetry: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        TextButton(onClick = onBack) { Text("Zurück") }
+        TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
         Text(providerName, style = MaterialTheme.typography.headlineMedium)
         Text(userName, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(12.dp))
@@ -45,19 +47,26 @@ fun CloudFolderScreen(
         if (isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         errorMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = onRetry, enabled = !isLoading) { Text("Erneut versuchen") }
+            TextButton(onClick = onRetry, enabled = !isLoading) {
+                Text(stringResource(R.string.retry))
+            }
         }
         if (calibreLibraryFound) {
-            Text("Calibre-Bibliothek erkannt", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.calibre_library_detected),
+                style = MaterialTheme.typography.titleMedium
+            )
             Button(onClick = onUseLibrary, enabled = !isLoading) {
-                Text("Diese Bibliothek verwenden")
+                Text(stringResource(R.string.use_this_library))
             }
         }
         LazyColumn(Modifier.weight(1f)) {
             items(items, key = { it.id }) { item ->
-                Row(Modifier.fillMaxWidth()
-                    .clickable(enabled = item.isFolder && !isLoading) { onFolderClick(item) }
-                    .padding(vertical = 16.dp)) {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clickable(enabled = item.isFolder && !isLoading) { onFolderClick(item) }
+                        .padding(vertical = 16.dp)
+                ) {
                     Text((if (item.isFolder) "📁 " else "📄 ") + item.name)
                 }
                 HorizontalDivider()
