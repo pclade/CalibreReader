@@ -2,7 +2,7 @@ package ch.sakru.calibrereader.ui.login
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +23,7 @@ import ch.sakru.calibrereader.R
 import ch.sakru.calibrereader.i18n.AppLanguage
 import ch.sakru.calibrereader.model.StorageProvider
 import ch.sakru.calibrereader.ui.common.LanguageMenu
+import ch.sakru.calibrereader.ui.common.PrivacyPolicyMenu
 
 @Composable
 fun ProviderSelectionScreen(
@@ -42,7 +43,7 @@ fun ProviderSelectionScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -55,6 +56,7 @@ fun ProviderSelectionScreen(
                     Text(stringResource(R.string.feedback))
                 }
             }
+            PrivacyPolicyMenu()
         }
 
         Text(stringResource(R.string.product_name), style = MaterialTheme.typography.headlineLarge)

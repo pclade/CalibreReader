@@ -3,6 +3,7 @@ package ch.sakru.calibrereader.ui.libraries
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import ch.sakru.calibrereader.R
 import ch.sakru.calibrereader.i18n.AppLanguage
 import ch.sakru.calibrereader.model.SavedLibrary
 import ch.sakru.calibrereader.ui.common.LanguageMenu
+import ch.sakru.calibrereader.ui.common.PrivacyPolicyMenu
 
 @Composable
 fun LibrarySelectionScreen(
@@ -47,7 +49,7 @@ fun LibrarySelectionScreen(
             TextButton(onClick = onChangeProvider) { Text(stringResource(R.string.change_storage)) }
             TextButton(onClick = onSignOut, enabled = !isLoading) { Text(stringResource(R.string.sign_out)) }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             LanguageMenu(
                 currentLanguage = currentLanguage,
                 onLanguageChange = onLanguageChange
@@ -57,6 +59,7 @@ fun LibrarySelectionScreen(
                     Text(stringResource(R.string.feedback))
                 }
             }
+            PrivacyPolicyMenu()
         }
         Text(stringResource(R.string.my_libraries), style = MaterialTheme.typography.headlineMedium)
         Text(providerName + " · " + userName, style = MaterialTheme.typography.bodyMedium)
